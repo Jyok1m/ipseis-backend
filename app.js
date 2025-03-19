@@ -1,4 +1,5 @@
 require("dotenv").config();
+require("./db/connection");
 
 var express = require("express");
 var path = require("path");
@@ -8,9 +9,9 @@ var indexRouter = require("./routes/index");
 var usersRouter = require("./routes/users");
 
 var app = express();
-var cors = require("cors")
+var cors = require("cors");
 
-app.use(cors())
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
