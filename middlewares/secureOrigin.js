@@ -1,6 +1,7 @@
 const { USER_AGENT_ENV, FRONTEND_URL } = process.env;
 
 const secureOrigin = (req, res, next) => {
+	const allowedOrigins = ["http://localhost:4001", "https://ipseis-git-test-joachim-jasmins-projects.vercel.app", "https://www.ipseis.fr"];
 	if (USER_AGENT_ENV !== "dev") {
 		return next();
 	}
@@ -26,7 +27,7 @@ const secureOrigin = (req, res, next) => {
 	const isUserAgentBlocked = blockedUserAgents.some((agent) => new RegExp(agent, "i").test(userAgent));
 
 	const origin = req.headers["origin"];
-	const isOriginBlocked = origin !== FRONTEND_URL;
+	const isOriginBlocked = !allowedOrigins.includes(origin);
 
 	if (isUserAgentBlocked && isOriginBlocked) {
 		return res.status(403).send("Accès refusé");
