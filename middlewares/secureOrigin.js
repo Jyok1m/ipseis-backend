@@ -9,13 +9,15 @@ const secureOrigin = (req, res, next) => {
 	// Vérification de l'authentification basique
 	const authHeader = req.headers["authorization"];
 
-	const base64Credentials = authHeader.split(" ")[1];
-	const credentials = Buffer.from(base64Credentials, "base64").toString("ascii");
-	const [username, password] = credentials.split(":");
+	if (authHeader) {
+		const base64Credentials = authHeader.split(" ")[1];
+		const credentials = Buffer.from(base64Credentials, "base64").toString("ascii");
+		const [username, password] = credentials.split(":");
 
-	// Remplacez ces valeurs par vos identifiants sécurisés
-	if (username === BACKEND_USERNAME && password === BACKEND_PASSWORD) {
-		return next();
+		// Remplacez ces valeurs par vos identifiants sécurisés
+		if (username === BACKEND_USERNAME && password === BACKEND_PASSWORD) {
+			return next();
+		}
 	}
 
 	const userAgent = req.headers["user-agent"];
