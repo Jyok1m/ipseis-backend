@@ -2,7 +2,7 @@ const { USER_AGENT_ENV } = process.env;
 
 const secureOrigin = (req, res, next) => {
 	const allowedOrigins = ["http://localhost:4001", "https://ipseis-git-test-joachim-jasmins-projects.vercel.app", "https://www.ipseis.fr"];
-	if (USER_AGENT_ENV !== "dev") {
+	if (USER_AGENT_ENV === "dev") {
 		return next();
 	}
 
