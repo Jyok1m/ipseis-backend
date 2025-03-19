@@ -2,16 +2,7 @@ var express = require("express");
 var router = express.Router();
 var db = require("../db/db");
 
-/**
- * Retrieves a training document from the database by its ID.
- *
- * @constant
- * @type {Object}
- * @property {string} trainingId - The unique identifier of the training to retrieve.
- * @returns {Promise<Object|null>} A promise that resolves to the training document if found, or null if not found.
- */
-
-router.get("/:trainingId", async function (req, res, next) {
+router.get("/by-id/:trainingId", async function (req, res, next) {
 	const { trainingId } = req.params;
 
 	if (!trainingId) {
@@ -22,7 +13,42 @@ router.get("/:trainingId", async function (req, res, next) {
 
 	try {
 		const training = await db.trainings.findById(trainingId);
+
+		if (!training) {
+			return res.status(404).json({ error: "Formation introuvable." });
+		}
+
 		res.json(training);
+	} catch (error) {
+		console.log(error);
+		res.status(500).json({ error: "Erreur interne. Merci de réessayer plus tard." });
+	}
+});
+
+router.get("/by-theme/:themeId", async function (req, res, next) {
+	const { themeId } = req.params;
+
+	if (!themeId) {
+		return res.status(400).json({ error: "Identifiant de theme manquant." });
+	} else if (themeId.length !== 24) {
+		return res.status(400).json({ error: "Identifiant de theme invalide." });
+	}
+
+	try {
+		const theme = await db.themes.findById(themeId).populate("trainings").select("trainings").lean();
+
+		if (!theme) {
+			return res.status(404).json({ error: "Theme introuvable." });
+		}
+
+		const { trainings } = theme;
+
+		const trainingList = trainings.map((training) => {
+			const { _id, title, description } = training;
+			return { _id, title, description };
+		});
+
+		res.json(trainingList);
 	} catch (error) {
 		console.log(error);
 		res.status(500).json({ error: "Erreur interne. Merci de réessayer plus tard." });
