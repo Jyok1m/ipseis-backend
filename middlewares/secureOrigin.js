@@ -8,9 +8,6 @@ const secureOrigin = (req, res, next) => {
 
 	// Vérification de l'authentification basique
 	const authHeader = req.headers["authorization"];
-	if (!authHeader) {
-		return res.status(401).send("Authentification requise");
-	}
 
 	const base64Credentials = authHeader.split(" ")[1];
 	const credentials = Buffer.from(base64Credentials, "base64").toString("ascii");
@@ -44,7 +41,11 @@ const secureOrigin = (req, res, next) => {
 	const origin = req.headers["origin"];
 	const isOriginBlocked = !allowedOrigins.includes(origin);
 
-	if (isUserAgentBlocked && isOriginBlocked) {
+	if (!authHeader) {
+		return res.status(401).send("Authentification requise");
+	} else if (username !== BACKEND_USERNAME || password !== BACKEND_PASSWORD) {
+		return res.status(403).send("Accès refusé : identifiants invalides");
+	} else if (isUserAgentBlocked && isOriginBlocked) {
 		return res.status(403).send("Accès refusé");
 	}
 
