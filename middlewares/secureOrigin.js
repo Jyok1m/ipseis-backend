@@ -1,7 +1,7 @@
 const { USER_AGENT_ENV, FRONTEND_URL } = process.env;
 
 const secureOrigin = (req, res, next) => {
-	if (USER_AGENT_ENV === "dev") {
+	if (USER_AGENT_ENV !== "dev") {
 		return next();
 	}
 
