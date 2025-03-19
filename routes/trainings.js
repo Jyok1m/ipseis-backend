@@ -2,7 +2,7 @@ var express = require("express");
 var router = express.Router();
 var db = require("../db/db");
 
-router.get("/by-id/:trainingId", async function (req, res, next) {
+router.get("/by-id/:trainingId", async function (req, res) {
 	const { trainingId } = req.params;
 
 	if (!trainingId) {
@@ -25,7 +25,7 @@ router.get("/by-id/:trainingId", async function (req, res, next) {
 	}
 });
 
-router.get("/by-theme/:themeId", async function (req, res, next) {
+router.get("/by-theme/:themeId", async function (req, res) {
 	const { themeId } = req.params;
 
 	if (!themeId) {
