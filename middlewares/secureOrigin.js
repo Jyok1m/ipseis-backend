@@ -41,11 +41,13 @@ const secureOrigin = (req, res, next) => {
 	const origin = req.headers["origin"];
 	const isOriginBlocked = !allowedOrigins.includes(origin);
 
-	if (!authHeader) {
-		return res.status(401).send("Authentification requise");
-	} else if (username !== BACKEND_USERNAME || password !== BACKEND_PASSWORD) {
-		return res.status(403).send("Accès refusé : identifiants invalides");
-	} else if (isUserAgentBlocked && isOriginBlocked) {
+	if (isUserAgentBlocked && isOriginBlocked) {
+		if (!authHeader) {
+			return res.status(401).send("Authentification requise");
+		} else if (username !== BACKEND_USERNAME || password !== BACKEND_PASSWORD) {
+			return res.status(403).send("Accès refusé : identifiants invalides");
+		}
+
 		return res.status(403).send("Accès refusé");
 	}
 
