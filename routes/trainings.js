@@ -12,13 +12,14 @@ router.get("/by-id/:trainingId", async function (req, res) {
 	}
 
 	try {
-		const training = await db.trainings.findById(trainingId);
+		const training = await db.trainings.findById(trainingId).lean();
+		const theme = await db.themes.findOne({ trainings: trainingId }).select("title").lean();
 
 		if (!training) {
 			return res.status(404).json({ error: "Formation introuvable." });
 		}
 
-		res.json(training);
+		res.json({ ...training, theme: theme.title });
 	} catch (error) {
 		console.log(error);
 		res.status(500).json({ error: "Erreur interne. Merci de réessayer plus tard." });
