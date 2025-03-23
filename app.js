@@ -6,6 +6,7 @@ var path = require("path");
 var cookieParser = require("cookie-parser");
 
 var indexRouter = require("./routes/index");
+var messagesRouter = require("./routes/messages");
 var themesRouter = require("./routes/themes");
 var trainingsRouter = require("./routes/trainings");
 
@@ -21,6 +22,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/", indexRouter);
+app.use("/messages", messagesRouter);
 app.use("/themes", themesRouter);
 app.use("/trainings", trainingsRouter);
 
