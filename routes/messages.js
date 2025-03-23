@@ -3,6 +3,7 @@ var router = express.Router();
 
 const db = require("../db/db");
 const nodemailer = require("nodemailer");
+const moment = require("moment");
 const { NODEMAILER_EMAIL, NODEMAILER_EMAIL_TO, NODEMAILER_PASSWORD } = process.env;
 
 router.post("/new", async function (req, res) {
@@ -19,7 +20,7 @@ router.post("/new", async function (req, res) {
 	const formattedEmail = email.toLowerCase();
 
 	try {
-		const newMessage = new db.messages({ firstName, lastName, email, budget, message });
+		const newMessage = await new db.messages({ firstName, lastName, email, budget, message });
 		await newMessage.save();
 
 		const transporter = nodemailer.createTransport({
@@ -29,6 +30,8 @@ router.post("/new", async function (req, res) {
 			secure: true,
 			auth: { user: NODEMAILER_EMAIL, pass: NODEMAILER_PASSWORD },
 		});
+
+		const sendDate = moment(newMessage.createdAt).format("DD/MM/YYYY à HH:mm");
 
 		const mailOptions = {
 			from: NODEMAILER_EMAIL, // source email
@@ -51,6 +54,7 @@ router.post("/new", async function (req, res) {
 									<h1>Nouveau message de la part de ${formattedFirstName} ${formattedLastName}</h1>
 									<h2>Informations</h2>
 									<ul>
+                      <li><strong>Date d'envoi : </strong>${sendDate}</li>
 											<li><strong>Nom : </strong>${formattedLastName}</li>
 											<li><strong>Prénom : </strong>${formattedFirstName}</li>
 											<li><strong>Email : </strong>${formattedEmail}</li>
