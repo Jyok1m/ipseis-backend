@@ -15,12 +15,19 @@ router.post("/new", async function (req, res) {
 		}
 	});
 
-	const formattedFirstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
-	const formattedLastName = lastName.toUpperCase();
-	const formattedEmail = email.toLowerCase();
-
 	try {
-		const newMessage = await new db.messages({ firstName, lastName, email, budget, message });
+		const formattedFirstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+		const formattedLastName = lastName.toUpperCase();
+		const formattedEmail = email.toLowerCase();
+		const formattedBudget = parseFloat(budget);
+
+		const newMessage = await new db.messages({
+			firstName: formattedFirstName,
+			lastName: formattedLastName,
+			email: formattedEmail,
+			budget: formattedBudget,
+			message,
+		});
 		await newMessage.save();
 
 		const transporter = nodemailer.createTransport({
@@ -58,7 +65,7 @@ router.post("/new", async function (req, res) {
 											<li><strong>Nom : </strong>${formattedLastName}</li>
 											<li><strong>Prénom : </strong>${formattedFirstName}</li>
 											<li><strong>Email : </strong>${formattedEmail}</li>
-											<li><strong>Budget : </strong>${budget}</li>
+											<li><strong>Budget : </strong>${budget} €</li>
 									</ul>
 									<h2>Message</h2>
 									<p>${message}</p>
