@@ -9,9 +9,9 @@ const moment = require("moment");
 const { NODEMAILER_EMAIL, NODEMAILER_EMAIL_TO, NODEMAILER_PASSWORD } = process.env;
 
 router.post("/new", async function (req, res) {
-	const { firstName, lastName, email, budget, message } = req.body;
+	const { firstName, lastName, email, message } = req.body;
 
-	["firstName", "lastName", "email", "budget", "message"].forEach((field) => {
+	["firstName", "lastName", "email", "message"].forEach((field) => {
 		if (!req.body[field] || req.body[field].trim() === "") {
 			return res.status(400).json({ error: "Veuillez remplir tous les champs." });
 		}
@@ -21,13 +21,11 @@ router.post("/new", async function (req, res) {
 		const formattedFirstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
 		const formattedLastName = lastName.toUpperCase();
 		const formattedEmail = email.toLowerCase();
-		const formattedBudget = parseFloat(budget);
 
 		const newMessage = await new db.messages({
 			firstName: formattedFirstName,
 			lastName: formattedLastName,
 			email: formattedEmail,
-			budget: formattedBudget,
 			message,
 		});
 		await newMessage.save();
@@ -67,7 +65,6 @@ router.post("/new", async function (req, res) {
 											<li><strong>Nom : </strong>${formattedLastName}</li>
 											<li><strong>Prénom : </strong>${formattedFirstName}</li>
 											<li><strong>Email : </strong>${formattedEmail}</li>
-											<li><strong>Budget : </strong>${budget} €</li>
 									</ul>
 									<h2>Message</h2>
 									<p>${message}</p>
