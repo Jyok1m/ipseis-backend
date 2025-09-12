@@ -231,7 +231,7 @@ router.get("/catalogue", async function (req, res) {
 		}
 
 		// Configuration du transporteur email
-		const transporter = nodemailer.createTransporter({
+		const transporter = nodemailer.createTransport({
 			service: "Gmail",
 			host: "smtp.gmail.com",
 			port: 465,
