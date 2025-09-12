@@ -23,6 +23,6 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/", indexRouter);
 app.use("/messages", messagesRouter);
 app.use("/themes", themesRouter);
-app.use("/trainings", trainingsRouter);
+app.use("/trainings", trainingsRouter); //
 
 module.exports = app;
