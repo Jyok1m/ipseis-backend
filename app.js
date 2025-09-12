@@ -22,6 +22,14 @@ const corsOptions = {
 	allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 };
 
+// Middleware de debug pour les requêtes CORS
+app.use((req, res, next) => {
+	console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+	console.log("Origin:", req.headers.origin);
+	console.log("User-Agent:", req.headers["user-agent"]);
+	next();
+});
+
 app.use(cors(corsOptions));
 // app.use(secureOrigin);
 
