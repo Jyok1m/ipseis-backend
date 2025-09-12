@@ -2,7 +2,13 @@ const { USER_AGENT_ENV, BACKEND_USERNAME, BACKEND_PASSWORD } = process.env;
 
 const secureOrigin = (req, res, next) => {
 	const allowedOrigins = ["http://localhost:4001", "https://ipseis-git-test-joachim-jasmins-projects.vercel.app", "https://www.ipseis.fr"];
-	if (USER_AGENT_ENV === "dev" || req.url === "/" || req.url.startsWith("/stylesheets") || req.url.startsWith("/favicon")) {
+	if (
+		USER_AGENT_ENV === "dev" ||
+		USER_AGENT_ENV === "prod" ||
+		req.url === "/" ||
+		req.url.startsWith("/stylesheets") ||
+		req.url.startsWith("/favicon")
+	) {
 		return next();
 	}
 
