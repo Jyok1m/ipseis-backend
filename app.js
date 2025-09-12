@@ -11,10 +11,10 @@ var trainingsRouter = require("./routes/trainings");
 
 var app = express();
 var cors = require("cors");
-var secureOrigin = require("./middlewares/secureOrigin");
+// var secureOrigin = require("./middlewares/secureOrigin");
 
 app.use(cors());
-app.use(secureOrigin);
+// app.use(secureOrigin);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
