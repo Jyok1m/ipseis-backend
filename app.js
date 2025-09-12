@@ -11,7 +11,6 @@ var trainingsRouter = require("./routes/trainings");
 
 var app = express();
 var cors = require("cors");
-// var secureOrigin = require("./middlewares/secureOrigin");
 
 // Configuration CORS pour autoriser les domaines spécifiques
 const corsOptions = {
@@ -31,7 +30,6 @@ app.use((req, res, next) => {
 });
 
 app.use(cors(corsOptions));
-// app.use(secureOrigin);
 
 // Middleware pour gérer les requêtes preflight OPTIONS
 app.options("*", cors(corsOptions));
