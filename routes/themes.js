@@ -1,7 +1,6 @@
-require("../db/connection");
+const { connectToMongoDB, mongoose } = require("../db/connection");
 
 var express = require("express");
-var mongoose = require("mongoose");
 var router = express.Router();
 var db = require("../db/db");
 
@@ -9,14 +8,8 @@ router.get("/list", async function (req, res) {
 	try {
 		console.log("📋 Fetching themes list...");
 
-		// Vérifier l'état de la connexion MongoDB
-		if (mongoose.connection.readyState !== 1) {
-			console.error("❌ MongoDB not connected, state:", mongoose.connection.readyState);
-			return res.status(503).json({
-				error: "Base de données temporairement indisponible. Veuillez réessayer.",
-				code: "DB_UNAVAILABLE",
-			});
-		}
+		// S'assurer que MongoDB est connecté
+		await connectToMongoDB();
 
 		const themes = await db.themes.find().lean().select("-trainings").maxTimeMS(20000);
 		console.log(`✅ Found ${themes.length} themes`);

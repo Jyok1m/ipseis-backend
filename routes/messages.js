@@ -1,7 +1,6 @@
-require("../db/connection");
+const { connectToMongoDB, mongoose } = require("../db/connection");
 
 var express = require("express");
-var mongoose = require("mongoose");
 var router = express.Router();
 
 const db = require("../db/db");
@@ -21,14 +20,8 @@ router.post("/new", async function (req, res) {
 	try {
 		console.log(`📧 Processing new contact message from ${firstName} ${lastName}`);
 
-		// Vérifier l'état de la connexion MongoDB
-		if (mongoose.connection.readyState !== 1) {
-			console.error("❌ MongoDB not connected, state:", mongoose.connection.readyState);
-			return res.status(503).json({
-				error: "Service temporairement indisponible. Veuillez réessayer dans quelques instants.",
-				code: "DB_UNAVAILABLE",
-			});
-		}
+		// S'assurer que MongoDB est connecté
+		await connectToMongoDB();
 
 		const formattedFirstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
 		const formattedLastName = lastName.toUpperCase();
@@ -308,14 +301,8 @@ router.get("/catalogue", async function (req, res) {
 	try {
 		console.log(`📚 Processing catalogue request from ${firstName} ${lastName} (${email})`);
 
-		// Vérifier l'état de la connexion MongoDB
-		if (mongoose.connection.readyState !== 1) {
-			console.error("❌ MongoDB not connected, state:", mongoose.connection.readyState);
-			return res.status(503).json({
-				error: "Service temporairement indisponible. Veuillez réessayer dans quelques instants.",
-				code: "DB_UNAVAILABLE",
-			});
-		}
+		// S'assurer que MongoDB est connecté
+		await connectToMongoDB();
 
 		const formattedFirstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
 		const formattedLastName = lastName.toUpperCase();

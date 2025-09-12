@@ -40,21 +40,37 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
 // Route de santé pour vérifier l'état de la base de données
-app.get("/health", (req, res) => {
-	const mongoose = require("mongoose");
-	const dbState = mongoose.connection.readyState;
-	const states = {
-		0: "disconnected",
-		1: "connected",
-		2: "connecting",
-		3: "disconnecting",
-	};
+app.get("/health", async (req, res) => {
+	try {
+		const { connectToMongoDB, mongoose, isConnected } = require("./db/connection");
 
-	res.json({
-		status: dbState === 1 ? "healthy" : "unhealthy",
-		database: states[dbState],
-		timestamp: new Date().toISOString(),
-	});
+		// Tenter de se connecter si pas encore connecté
+		if (!isConnected()) {
+			await connectToMongoDB();
+		}
+
+		const dbState = mongoose.connection.readyState;
+		const states = {
+			0: "disconnected",
+			1: "connected",
+			2: "connecting",
+			3: "disconnecting",
+		};
+
+		res.json({
+			status: dbState === 1 ? "healthy" : "unhealthy",
+			database: states[dbState],
+			timestamp: new Date().toISOString(),
+			uri: process.env.MONGODB_URI ? "configured" : "missing",
+		});
+	} catch (error) {
+		res.status(503).json({
+			status: "unhealthy",
+			database: "error",
+			error: error.message,
+			timestamp: new Date().toISOString(),
+		});
+	}
 });
 
 app.use("/", indexRouter);
