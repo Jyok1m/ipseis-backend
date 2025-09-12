@@ -12,6 +12,6 @@ router.get("/list", async function (req, res) {
 		console.log(error);
 		res.status(500).json({ error: "Erreur interne. Merci de réessayer plus tard." });
 	}
-});
+}); //
 
 module.exports = router;
