@@ -1,6 +1,7 @@
 require("../db/connection");
 
 var express = require("express");
+var mongoose = require("mongoose");
 var router = express.Router();
 var db = require("../db/db");
 
@@ -14,17 +15,47 @@ router.get("/by-id/:trainingId", async function (req, res) {
 	}
 
 	try {
-		const training = await db.trainings.findById(trainingId).lean();
-		const theme = await db.themes.findOne({ trainings: trainingId }).select("_id title").lean();
+		console.log(`📚 Fetching training with ID: ${trainingId}`);
+
+		// Vérifier l'état de la connexion MongoDB
+		if (mongoose.connection.readyState !== 1) {
+			console.error("❌ MongoDB not connected, state:", mongoose.connection.readyState);
+			return res.status(503).json({
+				error: "Base de données temporairement indisponible. Veuillez réessayer.",
+				code: "DB_UNAVAILABLE",
+			});
+		}
+
+		const training = await db.trainings.findById(trainingId).lean().maxTimeMS(20000);
+		const theme = await db.themes.findOne({ trainings: trainingId }).select("_id title").lean().maxTimeMS(20000);
 
 		if (!training) {
 			return res.status(404).json({ error: "Formation introuvable." });
 		}
 
+		console.log(`✅ Training found: ${training.title}`);
 		res.json({ ...training, themeId: theme._id, theme: theme.title });
 	} catch (error) {
-		console.log(error);
-		res.status(500).json({ error: "Erreur interne. Merci de réessayer plus tard." });
+		console.error("❌ Error fetching training:", error);
+
+		if (error.name === "MongooseError" && error.message.includes("buffering timed out")) {
+			return res.status(503).json({
+				error: "Connexion à la base de données interrompue. Veuillez réessayer.",
+				code: "DB_TIMEOUT",
+			});
+		}
+
+		if (error.name === "MongoTimeoutError") {
+			return res.status(503).json({
+				error: "Délai d'attente de la base de données dépassé. Veuillez réessayer.",
+				code: "DB_TIMEOUT",
+			});
+		}
+
+		res.status(500).json({
+			error: "Erreur interne. Merci de réessayer plus tard.",
+			code: "INTERNAL_ERROR",
+		});
 	}
 });
 
@@ -38,7 +69,18 @@ router.get("/by-theme/:themeId", async function (req, res) {
 	}
 
 	try {
-		const theme = await db.themes.findById(themeId).populate("trainings").select("trainings").lean();
+		console.log(`🎯 Fetching trainings for theme ID: ${themeId}`);
+
+		// Vérifier l'état de la connexion MongoDB
+		if (mongoose.connection.readyState !== 1) {
+			console.error("❌ MongoDB not connected, state:", mongoose.connection.readyState);
+			return res.status(503).json({
+				error: "Base de données temporairement indisponible. Veuillez réessayer.",
+				code: "DB_UNAVAILABLE",
+			});
+		}
+
+		const theme = await db.themes.findById(themeId).populate("trainings").select("trainings").lean().maxTimeMS(20000);
 
 		if (!theme) {
 			return res.status(404).json({ error: "Theme introuvable." });
@@ -51,10 +93,29 @@ router.get("/by-theme/:themeId", async function (req, res) {
 			return { _id, title, description };
 		});
 
+		console.log(`✅ Found ${trainingList.length} trainings for theme`);
 		res.json(trainingList);
 	} catch (error) {
-		console.log(error);
-		res.status(500).json({ error: "Erreur interne. Merci de réessayer plus tard." });
+		console.error("❌ Error fetching trainings by theme:", error);
+
+		if (error.name === "MongooseError" && error.message.includes("buffering timed out")) {
+			return res.status(503).json({
+				error: "Connexion à la base de données interrompue. Veuillez réessayer.",
+				code: "DB_TIMEOUT",
+			});
+		}
+
+		if (error.name === "MongoTimeoutError") {
+			return res.status(503).json({
+				error: "Délai d'attente de la base de données dépassé. Veuillez réessayer.",
+				code: "DB_TIMEOUT",
+			});
+		}
+
+		res.status(500).json({
+			error: "Erreur interne. Merci de réessayer plus tard.",
+			code: "INTERNAL_ERROR",
+		});
 	}
 });
 

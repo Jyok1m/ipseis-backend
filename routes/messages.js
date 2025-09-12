@@ -1,6 +1,7 @@
 require("../db/connection");
 
 var express = require("express");
+var mongoose = require("mongoose");
 var router = express.Router();
 
 const db = require("../db/db");
@@ -18,6 +19,17 @@ router.post("/new", async function (req, res) {
 	});
 
 	try {
+		console.log(`📧 Processing new contact message from ${firstName} ${lastName}`);
+
+		// Vérifier l'état de la connexion MongoDB
+		if (mongoose.connection.readyState !== 1) {
+			console.error("❌ MongoDB not connected, state:", mongoose.connection.readyState);
+			return res.status(503).json({
+				error: "Service temporairement indisponible. Veuillez réessayer dans quelques instants.",
+				code: "DB_UNAVAILABLE",
+			});
+		}
+
 		const formattedFirstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
 		const formattedLastName = lastName.toUpperCase();
 		const formattedEmail = email.toLowerCase();
@@ -246,10 +258,36 @@ router.post("/new", async function (req, res) {
 		};
 
 		await transporter.sendMail(mailOptions);
+		console.log(`✅ Contact message processed successfully for ${formattedEmail}`);
 		res.json({ message: "Votre message a été envoyé avec succès. Nous vous répondrons dans les plus brefs délais." });
 	} catch (error) {
-		console.log(error);
-		res.status(500).json({ error: "Erreur lors de l'envoi du message. Merci de réessayer plus tard." });
+		console.error("❌ Error processing contact message:", error);
+
+		if (error.name === "MongooseError" && error.message.includes("buffering timed out")) {
+			return res.status(503).json({
+				error: "Problème de connexion temporaire. Veuillez réessayer dans quelques instants.",
+				code: "DB_TIMEOUT",
+			});
+		}
+
+		if (error.name === "MongoTimeoutError") {
+			return res.status(503).json({
+				error: "Délai d'attente dépassé. Veuillez réessayer.",
+				code: "DB_TIMEOUT",
+			});
+		}
+
+		if (error.code === "ECONNECTION" || error.message.includes("SMTP")) {
+			return res.status(502).json({
+				error: "Problème d'envoi d'email. Votre message a été enregistré, nous vous recontacterons.",
+				code: "EMAIL_ERROR",
+			});
+		}
+
+		res.status(500).json({
+			error: "Erreur lors de l'envoi du message. Merci de réessayer plus tard.",
+			code: "INTERNAL_ERROR",
+		});
 	}
 });
 
@@ -268,12 +306,23 @@ router.get("/catalogue", async function (req, res) {
 	}
 
 	try {
+		console.log(`📚 Processing catalogue request from ${firstName} ${lastName} (${email})`);
+
+		// Vérifier l'état de la connexion MongoDB
+		if (mongoose.connection.readyState !== 1) {
+			console.error("❌ MongoDB not connected, state:", mongoose.connection.readyState);
+			return res.status(503).json({
+				error: "Service temporairement indisponible. Veuillez réessayer dans quelques instants.",
+				code: "DB_UNAVAILABLE",
+			});
+		}
+
 		const formattedFirstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
 		const formattedLastName = lastName.toUpperCase();
 		const formattedEmail = email.toLowerCase();
 
 		// Gérer le prospect
-		let prospect = await db.prospects.findOne({ email: formattedEmail });
+		let prospect = await db.prospects.findOne({ email: formattedEmail }).maxTimeMS(20000);
 		let isExistingProspect = !!prospect;
 
 		if (!prospect) {
@@ -697,12 +746,38 @@ router.get("/catalogue", async function (req, res) {
 
 		await transporter.sendMail(notificationMailOptions);
 
+		console.log(`✅ Catalogue sent successfully to ${formattedEmail}`);
 		res.json({
 			message: "Le catalogue a été envoyé avec succès à votre adresse email. Merci de votre intérêt pour nos formations !",
 		});
 	} catch (error) {
-		console.log(error);
-		res.status(500).json({ error: "Erreur lors de l'envoi du catalogue. Merci de réessayer plus tard." });
+		console.error("❌ Error processing catalogue request:", error);
+
+		if (error.name === "MongooseError" && error.message.includes("buffering timed out")) {
+			return res.status(503).json({
+				error: "Problème de connexion temporaire. Veuillez réessayer dans quelques instants.",
+				code: "DB_TIMEOUT",
+			});
+		}
+
+		if (error.name === "MongoTimeoutError") {
+			return res.status(503).json({
+				error: "Délai d'attente dépassé. Veuillez réessayer.",
+				code: "DB_TIMEOUT",
+			});
+		}
+
+		if (error.code === "ECONNECTION" || error.message.includes("SMTP")) {
+			return res.status(502).json({
+				error: "Problème d'envoi d'email. Votre demande a été enregistrée, nous vous enverrons le catalogue manuellement.",
+				code: "EMAIL_ERROR",
+			});
+		}
+
+		res.status(500).json({
+			error: "Erreur lors de l'envoi du catalogue. Merci de réessayer plus tard.",
+			code: "INTERNAL_ERROR",
+		});
 	}
 });
 
