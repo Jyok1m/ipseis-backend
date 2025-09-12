@@ -22,6 +22,7 @@ router.post("/new", async function (req, res) {
 		const formattedLastName = lastName.toUpperCase();
 		const formattedEmail = email.toLowerCase();
 
+		// Sauvegarder le message
 		const newMessage = await new db.messages({
 			firstName: formattedFirstName,
 			lastName: formattedLastName,
@@ -29,6 +30,48 @@ router.post("/new", async function (req, res) {
 			message,
 		});
 		await newMessage.save();
+
+		// Gérer le prospect
+		let prospect = await db.prospects.findOne({ email: formattedEmail });
+
+		if (!prospect) {
+			// Nouveau prospect
+			prospect = new db.prospects({
+				firstName: formattedFirstName,
+				lastName: formattedLastName,
+				email: formattedEmail,
+				source: "contact",
+				hasContactMessage: true,
+				interactionCount: 1,
+				lastInteractionDate: new Date(),
+			});
+		} else {
+			// Prospect existant - mise à jour
+			prospect.hasContactMessage = true;
+			prospect.interactionCount = (prospect.interactionCount || 0) + 1;
+			prospect.lastInteractionDate = new Date();
+
+			// Mettre à jour la source si c'était catalogue seulement
+			if (prospect.source === "catalogue") {
+				prospect.source = "mixed";
+			}
+		}
+		await prospect.save();
+
+		// Enregistrer l'interaction
+		const interaction = new db.interactions({
+			prospectId: prospect._id,
+			type: "contact_message",
+			data: {
+				message: message,
+				messageId: newMessage._id.toString(),
+				firstName: formattedFirstName,
+				lastName: formattedLastName,
+			},
+			userAgent: req.get("User-Agent"),
+			ipAddress: req.ip || req.connection.remoteAddress,
+		});
+		await interaction.save();
 
 		const transporter = nodemailer.createTransport({
 			service: "Gmail",
@@ -55,27 +98,28 @@ router.post("/new", async function (req, res) {
 							* { margin: 0; padding: 0; box-sizing: border-box; }
 							body { 
 								font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-								background-color: #FFFCE8; 
-								color: #263C27; 
+								background-color: #f8f9fa; 
+								color: #2c3e50; 
 								line-height: 1.6;
-								padding: 40px 20px;
+								padding: 20px;
 							}
 							.container {
 								max-width: 600px;
 								margin: 0 auto;
 								background-color: #ffffff;
-								border-radius: 12px;
+								border-radius: 8px;
 								overflow: hidden;
-								box-shadow: 0 4px 20px rgba(38, 60, 39, 0.1);
+								box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+								border: 1px solid #e9ecef;
 							}
 							.header {
-								background: linear-gradient(135deg, #263C27 0%, #6F9271 100%);
-								color: #FFFCE8;
-								padding: 30px;
+								background-color: #263C27;
+								color: #ffffff;
+								padding: 25px;
 								text-align: center;
 							}
 							.header h1 {
-								font-size: 28px;
+								font-size: 24px;
 								font-weight: bold;
 								margin-bottom: 8px;
 							}
@@ -85,17 +129,18 @@ router.post("/new", async function (req, res) {
 							}
 							.content {
 								padding: 30px;
+								background-color: #ffffff;
 							}
 							.info-section {
-								background-color: #FFFCE8;
+								background-color: #f8f9fa;
 								border-left: 4px solid #FF4E00;
 								padding: 20px;
 								margin: 20px 0;
-								border-radius: 0 8px 8px 0;
+								border-radius: 4px;
 							}
 							.info-section h2 {
-								color: #263C27;
-								font-size: 20px;
+								color: #2c3e50;
+								font-size: 18px;
 								margin-bottom: 15px;
 								font-weight: bold;
 							}
@@ -104,45 +149,47 @@ router.post("/new", async function (req, res) {
 								padding: 0;
 							}
 							.info-list li {
-								padding: 8px 0;
-								border-bottom: 1px solid rgba(38, 60, 39, 0.1);
+								padding: 10px 0;
+								border-bottom: 1px solid #e9ecef;
 								font-size: 16px;
+								color: #495057;
 							}
 							.info-list li:last-child {
 								border-bottom: none;
 							}
 							.info-list strong {
-								color: #263C27;
+								color: #2c3e50;
 								font-weight: 600;
 							}
 							.message-box {
-								background-color: #f8f9fa;
-								border: 2px solid #6F9271;
-								border-radius: 8px;
-								padding: 25px;
+								background-color: #ffffff;
+								border: 2px solid #e9ecef;
+								border-radius: 6px;
+								padding: 20px;
 								margin: 25px 0;
 							}
 							.message-box h3 {
-								color: #263C27;
+								color: #2c3e50;
 								font-size: 18px;
 								margin-bottom: 15px;
 								font-weight: bold;
 							}
 							.message-content {
-								color: #263C27;
+								color: #495057;
 								font-size: 16px;
-								line-height: 1.7;
-								background-color: white;
+								line-height: 1.6;
+								background-color: #f8f9fa;
 								padding: 20px;
-								border-radius: 6px;
+								border-radius: 4px;
 								border-left: 3px solid #FF4E00;
 							}
 							.footer {
-								background-color: #263C27;
-								color: #FFFCE8;
+								background-color: #f8f9fa;
+								color: #495057;
 								padding: 20px;
 								text-align: center;
 								font-size: 14px;
+								border-top: 1px solid #e9ecef;
 							}
 							.cta-button {
 								display: inline-block;
@@ -153,6 +200,13 @@ router.post("/new", async function (req, res) {
 								border-radius: 6px;
 								font-weight: bold;
 								margin-top: 15px;
+							}
+							a {
+								color: #FF4E00;
+								text-decoration: none;
+							}
+							a:hover {
+								text-decoration: underline;
 							}
 						</style>
 					</head>
@@ -169,7 +223,7 @@ router.post("/new", async function (req, res) {
 										<li><strong>Date d'envoi :</strong> ${sendDate}</li>
 										<li><strong>Nom :</strong> ${formattedLastName}</li>
 										<li><strong>Prénom :</strong> ${formattedFirstName}</li>
-										<li><strong>Email :</strong> <a href="mailto:${formattedEmail}" style="color: #FF4E00; text-decoration: none;">${formattedEmail}</a></li>
+										<li><strong>Email :</strong> <a href="mailto:${formattedEmail}">${formattedEmail}</a></li>
 									</ul>
 								</div>
 								<div class="message-box">
@@ -183,7 +237,7 @@ router.post("/new", async function (req, res) {
 							<div class="footer">
 								<strong>IPSEIS</strong> — Organisme de formation<br>
 								21 Rue de la Nation, 35400 Saint-Malo<br>
-								<a href="mailto:helenedm@ipseis.fr" style="color: #FFFCE8;">helenedm@ipseis.fr</a>
+								<a href="mailto:helenedm@ipseis.fr">helenedm@ipseis.fr</a>
 							</div>
 						</div>
 					</body>
@@ -218,17 +272,47 @@ router.get("/catalogue", async function (req, res) {
 		const formattedLastName = lastName.toUpperCase();
 		const formattedEmail = email.toLowerCase();
 
-		// Enregistrer le prospect (ou mettre à jour s'il existe déjà)
-		const existingProspect = await db.prospects.findOne({ email: formattedEmail });
+		// Gérer le prospect
+		let prospect = await db.prospects.findOne({ email: formattedEmail });
+		let isExistingProspect = !!prospect;
 
-		if (!existingProspect) {
-			const newProspect = new db.prospects({
+		if (!prospect) {
+			// Nouveau prospect
+			prospect = new db.prospects({
 				firstName: formattedFirstName,
 				lastName: formattedLastName,
 				email: formattedEmail,
+				source: "catalogue",
+				hasCatalogueDownload: true,
+				interactionCount: 1,
+				lastInteractionDate: new Date(),
 			});
-			await newProspect.save();
+		} else {
+			// Prospect existant - mise à jour
+			prospect.hasCatalogueDownload = true;
+			prospect.interactionCount = (prospect.interactionCount || 0) + 1;
+			prospect.lastInteractionDate = new Date();
+
+			// Mettre à jour la source si c'était contact seulement
+			if (prospect.source === "contact") {
+				prospect.source = "mixed";
+			}
 		}
+		await prospect.save();
+
+		// Enregistrer l'interaction
+		const interaction = new db.interactions({
+			prospectId: prospect._id,
+			type: "catalogue_download",
+			data: {
+				catalogueVersion: "2025",
+				firstName: formattedFirstName,
+				lastName: formattedLastName,
+			},
+			userAgent: req.get("User-Agent"),
+			ipAddress: req.ip || req.connection.remoteAddress,
+		});
+		await interaction.save();
 
 		// Configuration du transporteur email
 		const transporter = nodemailer.createTransport({
@@ -254,79 +338,84 @@ router.get("/catalogue", async function (req, res) {
 							* { margin: 0; padding: 0; box-sizing: border-box; }
 							body { 
 								font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-								background-color: #FFFCE8; 
-								color: #263C27; 
+								background-color: #f8f9fa; 
+								color: #2c3e50; 
 								line-height: 1.6;
-								padding: 40px 20px;
+								padding: 20px;
 							}
 							.container {
 								max-width: 600px;
 								margin: 0 auto;
 								background-color: #ffffff;
-								border-radius: 12px;
+								border-radius: 8px;
 								overflow: hidden;
-								box-shadow: 0 4px 20px rgba(38, 60, 39, 0.1);
+								box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+								border: 1px solid #e9ecef;
 							}
 							.header {
-								background: linear-gradient(135deg, #263C27 0%, #6F9271 100%);
-								color: #FFFCE8;
-								padding: 40px 30px;
+								background-color: #263C27;
+								color: #ffffff;
+								padding: 30px;
 								text-align: center;
 							}
 							.header h1 {
-								font-size: 32px;
+								font-size: 28px;
 								font-weight: bold;
-								margin-bottom: 12px;
+								margin-bottom: 10px;
 							}
 							.header p {
-								font-size: 18px;
+								font-size: 16px;
 								opacity: 0.9;
 							}
 							.content {
-								padding: 40px 30px;
+								padding: 30px;
+								background-color: #ffffff;
 							}
 							.welcome-message {
-								background: linear-gradient(135deg, #FFFCE8 0%, #f8f9fa 100%);
+								background-color: #f8f9fa;
 								border-left: 4px solid #FF4E00;
-								padding: 25px;
-								margin-bottom: 30px;
-								border-radius: 0 8px 8px 0;
+								padding: 20px;
+								margin-bottom: 25px;
+								border-radius: 4px;
 							}
 							.welcome-message h2 {
-								color: #263C27;
-								font-size: 24px;
-								margin-bottom: 15px;
+								color: #2c3e50;
+								font-size: 20px;
+								margin-bottom: 12px;
 								font-weight: bold;
+							}
+							.welcome-message p {
+								color: #495057;
+								font-size: 16px;
+								margin: 0;
 							}
 							.content-section {
 								background-color: #ffffff;
-								padding: 25px;
+								padding: 20px 0;
 								margin: 20px 0;
-								border-radius: 8px;
-								border: 1px solid rgba(111, 146, 113, 0.2);
 							}
 							.content-section p {
 								font-size: 16px;
-								line-height: 1.7;
-								color: #263C27;
+								line-height: 1.6;
+								color: #495057;
 								margin-bottom: 15px;
 							}
 							.attachment-notice {
 								background-color: #e8f5e8;
-								border: 2px dashed #6F9271;
+								border: 2px solid #6F9271;
 								padding: 20px;
-								border-radius: 8px;
+								border-radius: 6px;
 								text-align: center;
 								margin: 25px 0;
 							}
 							.attachment-notice h3 {
-								color: #263C27;
+								color: #2c3e50;
 								font-size: 18px;
-								margin-bottom: 10px;
+								margin-bottom: 8px;
 								font-weight: bold;
 							}
 							.attachment-notice p {
-								color: #6F9271;
+								color: #495057;
 								font-size: 14px;
 								margin: 0;
 							}
@@ -334,35 +423,42 @@ router.get("/catalogue", async function (req, res) {
 								text-align: center;
 								margin: 30px 0;
 								padding: 25px;
-								background: linear-gradient(135deg, #FFFCE8 0%, #f0f8f0 100%);
-								border-radius: 8px;
+								background-color: #f8f9fa;
+								border-radius: 6px;
+								border: 1px solid #e9ecef;
+							}
+							.cta-section p {
+								color: #2c3e50;
+								font-size: 16px;
+								margin-bottom: 20px;
+								font-weight: bold;
 							}
 							.cta-button {
 								display: inline-block;
 								background-color: #FF4E00;
 								color: white;
-								padding: 15px 30px;
+								padding: 12px 24px;
 								text-decoration: none;
-								border-radius: 8px;
+								border-radius: 6px;
 								font-weight: bold;
-								font-size: 16px;
-								margin: 10px;
-								transition: background-color 0.3s;
+								font-size: 14px;
+								margin: 8px;
 							}
 							.cta-button.secondary {
 								background-color: #6F9271;
 							}
 							.contact-info {
-								background-color: #263C27;
-								color: #FFFCE8;
-								padding: 30px;
-								border-radius: 8px;
-								margin-top: 30px;
+								background-color: #f8f9fa;
+								color: #495057;
+								padding: 25px;
+								border-radius: 6px;
+								margin-top: 25px;
+								border: 1px solid #e9ecef;
 							}
 							.contact-info h3 {
-								color: #FFFCE8;
-								font-size: 20px;
-								margin-bottom: 20px;
+								color: #2c3e50;
+								font-size: 18px;
+								margin-bottom: 15px;
 								font-weight: bold;
 								text-align: center;
 							}
@@ -371,21 +467,21 @@ router.get("/catalogue", async function (req, res) {
 								line-height: 1.8;
 							}
 							.contact-details strong {
-								color: #FF4E00;
-							}
-							.footer {
-								background-color: #263C27;
-								color: #FFFCE8;
-								padding: 20px;
-								text-align: center;
-								font-size: 14px;
+								color: #2c3e50;
 							}
 							.signature {
 								text-align: center;
 								margin-top: 25px;
 								font-style: italic;
-								color: #6F9271;
+								color: #6c757d;
 								font-size: 16px;
+							}
+							a {
+								color: #FF4E00;
+								text-decoration: none;
+							}
+							a:hover {
+								text-decoration: underline;
 							}
 						</style>
 					</head>
@@ -418,9 +514,7 @@ router.get("/catalogue", async function (req, res) {
 								</div>
 								
 								<div class="cta-section">
-									<p style="color: #263C27; font-size: 16px; margin-bottom: 20px;">
-										<strong>Besoin d'accompagnement personnalisé ?</strong>
-									</p>
+									<p>Besoin d'accompagnement personnalisé ?</p>
 									<a href="mailto:helenedm@ipseis.fr" class="cta-button">Nous contacter</a>
 									<a href="mailto:helenedm@ipseis.fr?subject=Demande de devis - Formation&body=Bonjour,%0A%0AJe souhaiterais obtenir un devis pour une formation." class="cta-button secondary">Demander un devis</a>
 								</div>
@@ -431,7 +525,7 @@ router.get("/catalogue", async function (req, res) {
 										<strong>IPSEIS</strong> — Organisme de formation certifié Qualiopi<br>
 										<strong>Représentation :</strong> Hélène PAILLOT DE MONTABERT<br>
 										<strong>Adresse :</strong> 21 Rue de la Nation, 35400 Saint-Malo<br>
-										<strong>Email :</strong> <a href="mailto:helenedm@ipseis.fr" style="color: #FF4E00; text-decoration: none;">helenedm@ipseis.fr</a>
+										<strong>Email :</strong> <a href="mailto:helenedm@ipseis.fr">helenedm@ipseis.fr</a>
 									</div>
 								</div>
 								
@@ -467,36 +561,135 @@ router.get("/catalogue", async function (req, res) {
 						<meta http-equiv="X-UA-Compatible" content="IE=edge" />
 						<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 						<style>
-							body { font-family: Arial, sans-serif; margin: 40px; background-color: #f9f9f9; color: #333; } 
-							h1 { font-size: 24px; margin-bottom: 20px; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; } 
-							h2 { font-size: 20px; margin-top: 30px; margin-bottom: 10px; color: #34495e; } 
-							ul { list-style-type: none; padding-left: 0; } 
-							li { padding: 8px 0; } 
-							.info-box { background-color: #e8f6ff; padding: 15px; border-left: 4px solid #3498db; margin: 20px 0; border-radius: 5px; }
+							* { margin: 0; padding: 0; box-sizing: border-box; }
+							body { 
+								font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+								background-color: #f8f9fa; 
+								color: #2c3e50; 
+								line-height: 1.6;
+								padding: 20px;
+							}
+							.container {
+								max-width: 600px;
+								margin: 0 auto;
+								background-color: #ffffff;
+								border-radius: 8px;
+								overflow: hidden;
+								box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+								border: 1px solid #e9ecef;
+							}
+							.header {
+								background-color: #263C27;
+								color: #ffffff;
+								padding: 25px;
+								text-align: center;
+							}
+							.header h1 {
+								font-size: 24px;
+								font-weight: bold;
+								margin-bottom: 8px;
+							}
+							.content {
+								padding: 30px;
+								background-color: #ffffff;
+							}
+							.info-box {
+								background-color: #f8f9fa;
+								border-left: 4px solid #FF4E00;
+								padding: 20px;
+								margin: 20px 0;
+								border-radius: 4px;
+							}
+							.info-box strong {
+								color: #2c3e50;
+								font-size: 16px;
+							}
+							h2 {
+								color: #2c3e50;
+								font-size: 18px;
+								margin: 25px 0 15px 0;
+								font-weight: bold;
+							}
+							ul {
+								list-style: none;
+								padding: 0;
+								background-color: #f8f9fa;
+								border-radius: 4px;
+								padding: 20px;
+							}
+							li {
+								padding: 8px 0;
+								border-bottom: 1px solid #e9ecef;
+								font-size: 16px;
+								color: #495057;
+							}
+							li:last-child {
+								border-bottom: none;
+							}
+							li strong {
+								color: #2c3e50;
+								font-weight: 600;
+							}
+							.status-box {
+								background-color: #e8f5e8;
+								border: 1px solid #6F9271;
+								padding: 15px;
+								margin: 20px 0;
+								border-radius: 4px;
+							}
+							.status-box strong {
+								color: #2c3e50;
+							}
+							.footer-note {
+								margin-top: 25px;
+								font-style: italic;
+								color: #6c757d;
+								font-size: 14px;
+								text-align: center;
+								background-color: #f8f9fa;
+								padding: 15px;
+								border-radius: 4px;
+							}
+							a {
+								color: #FF4E00;
+								text-decoration: none;
+							}
+							a:hover {
+								text-decoration: underline;
+							}
 						</style>
 					</head>
 					<body>
-						<h1>Nouveau téléchargement de catalogue</h1>
-						<div class="info-box">
-							<strong>Un nouveau prospect a téléchargé le catalogue de formations IPSEIS.</strong>
+						<div class="container">
+							<div class="header">
+								<h1>📥 Nouveau téléchargement de catalogue</h1>
+							</div>
+							<div class="content">
+								<div class="info-box">
+									<strong>Un nouveau prospect a téléchargé le catalogue de formations IPSEIS.</strong>
+								</div>
+								
+								<h2>👤 Informations du prospect</h2>
+								<ul>
+									<li><strong>Date de téléchargement :</strong> ${moment().format("DD/MM/YYYY à HH:mm")}</li>
+									<li><strong>Nom :</strong> ${formattedLastName}</li>
+									<li><strong>Prénom :</strong> ${formattedFirstName}</li>
+									<li><strong>Email :</strong> <a href="mailto:${formattedEmail}">${formattedEmail}</a></li>
+								</ul>
+								
+								<div class="status-box">
+									${
+										isExistingProspect
+											? "<strong>📋 Prospect existant :</strong> Cette personne avait déjà téléchargé le catalogue précédemment."
+											: "<strong>✨ Nouveau prospect :</strong> Cette personne a été ajoutée à la base de données des prospects."
+									}
+								</div>
+								
+								<div class="footer-note">
+									💡 Vous pouvez maintenant effectuer un suivi personnalisé avec ce prospect.
+								</div>
+							</div>
 						</div>
-						<h2>Informations du prospect</h2>
-						<ul>
-							<li><strong>Date de téléchargement : </strong>${moment().format("DD/MM/YYYY à HH:mm")}</li>
-							<li><strong>Nom : </strong>${formattedLastName}</li>
-							<li><strong>Prénom : </strong>${formattedFirstName}</li>
-							<li><strong>Email : </strong><a href="mailto:${formattedEmail}">${formattedEmail}</a></li>
-						</ul>
-						<div class="info-box">
-							${
-								existingProspect
-									? "<strong>Prospect existant :</strong> Cette personne avait déjà téléchargé le catalogue précédemment."
-									: "<strong>Nouveau prospect :</strong> Cette personne a été ajoutée à la base de données des prospects."
-							}
-						</div>
-						<p style="margin-top: 30px; font-style: italic; color: #7f8c8d;">
-							Vous pouvez maintenant effectuer un suivi personnalisé avec ce prospect.
-						</p>
 					</body>
 				</html>
 			`,
