@@ -13,8 +13,21 @@ var app = express();
 var cors = require("cors");
 // var secureOrigin = require("./middlewares/secureOrigin");
 
-app.use(cors());
+// Configuration CORS pour autoriser les domaines spécifiques
+const corsOptions = {
+	origin: ["https://ipseis-git-test-joachim-jasmins-projects.vercel.app", "https://www.ipseis.fr", "http://localhost:3000", "http://localhost:4001"],
+	credentials: true,
+	optionsSuccessStatus: 200, // Pour supporter les anciens navigateurs (IE11)
+	methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+	allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+};
+
+app.use(cors(corsOptions));
 // app.use(secureOrigin);
+
+// Middleware pour gérer les requêtes preflight OPTIONS
+app.options("*", cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
