@@ -344,6 +344,7 @@ router.get("/catalogue", async function (req, res) {
 		// Gérer le prospect
 		let prospect = await db.prospects.findOne({ email: formattedEmail }).maxTimeMS(20000);
 		let isExistingProspect = !!prospect;
+		let lastDownloadDate = null;
 
 		if (!prospect) {
 			// Nouveau prospect
@@ -365,6 +366,11 @@ router.get("/catalogue", async function (req, res) {
 			// Mettre à jour la source si c'était contact seulement
 			if (prospect.source === "contact") {
 				prospect.source = "mixed";
+			}
+
+			const lastDownloadInteraction = await db.interactions.findOne({ prospectId: prospect._id, type: "catalogue_download" }).sort({ createdAt: -1 });
+			if (lastDownloadInteraction) {
+				lastDownloadDate = lastDownloadInteraction.createdAt;
 			}
 		}
 		await prospect.save();
@@ -558,7 +564,7 @@ router.get("/catalogue", async function (req, res) {
 					<body>
 						<div class="container">
 							<div class="header">
-								<h1>📚 Votre catalogue IPSEIS 2025</h1>
+								<h1>Votre catalogue IPSEIS 2025</h1>
 								<p>Formations professionnelles dans le secteur de la santé</p>
 							</div>
 							<div class="content">
@@ -574,7 +580,7 @@ router.get("/catalogue", async function (req, res) {
 									<h2>🎯 Vos formations d'intérêt</h2>
 									<p>Nous avons noté que vous êtes particulièrement intéressé(e) par les formations suivantes :</p>
 									<ul class="info-list" style="margin-top: 15px;">
-										${parsedInterestedFormations.map((formation) => `<li>• ${formation}</li>`).join("")}
+										${parsedInterestedFormations.map((formation) => `<li>${formation}</li>`).join("")}
 									</ul>
 									<p style="margin-top: 15px; font-style: italic; color: #6c757d;">
 										N'hésitez pas à nous contacter pour plus d'informations sur ces formations spécifiques.
@@ -618,7 +624,7 @@ router.get("/catalogue", async function (req, res) {
 								
 								<div class="signature">
 									Cordialement,<br>
-									<strong>L'équipe IPSEIS</strong> 🌟
+									<strong>L'équipe IPSEIS</strong>
 								</div>
 							</div>
 						</div>
@@ -774,7 +780,9 @@ router.get("/catalogue", async function (req, res) {
 								<div class="status-box">
 									${
 										isExistingProspect
-											? "<strong>📋 Prospect existant :</strong> Cette personne avait déjà téléchargé le catalogue précédemment."
+											? `<strong>📋 Prospect existant :</strong> Cette personne avait déjà téléchargé le catalogue précédemment le ${moment(
+													lastDownloadDate
+											  ).format("DD/MM/YYYY à HH:mm")}.`
 											: "<strong>✨ Nouveau prospect :</strong> Cette personne a été ajoutée à la base de données des prospects."
 									}
 								</div>
