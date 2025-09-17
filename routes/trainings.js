@@ -1,8 +1,49 @@
-const { connectToMongoDB, mongoose } = require("../db/connection");
+const { connectToMongoDB } = require("../db/connection");
 
 var express = require("express");
 var router = express.Router();
 var db = require("../db/db");
+
+router.get("/all", async function (req, res) {
+	try {
+		// S'assurer que MongoDB est connecté
+		await connectToMongoDB();
+
+		const themes = await db.themes.find().populate("trainings").select("_id title trainings").lean().maxTimeMS(20000);
+
+		const formattedThemes = [];
+		for (const theme of themes) {
+			const formattedTrainings = theme.trainings.map((training) => {
+				const { _id, title } = training;
+				return { _id, title };
+			});
+			formattedThemes.push({ _id: theme._id, title: theme.title, trainings: formattedTrainings });
+		}
+
+		res.json({ themes: formattedThemes });
+	} catch (error) {
+		console.error("❌ Error fetching training:", error);
+
+		if (error.name === "MongooseError" && error.message.includes("buffering timed out")) {
+			return res.status(503).json({
+				error: "Connexion à la base de données interrompue. Veuillez réessayer.",
+				code: "DB_TIMEOUT",
+			});
+		}
+
+		if (error.name === "MongoTimeoutError") {
+			return res.status(503).json({
+				error: "Délai d'attente de la base de données dépassé. Veuillez réessayer.",
+				code: "DB_TIMEOUT",
+			});
+		}
+
+		res.status(500).json({
+			error: "Erreur interne. Merci de réessayer plus tard.",
+			code: "INTERNAL_ERROR",
+		});
+	}
+});
 
 router.get("/by-id/:trainingId", async function (req, res) {
 	const { trainingId } = req.params;
