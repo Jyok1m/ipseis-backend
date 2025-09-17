@@ -1,4 +1,4 @@
-const { connectToMongoDB, mongoose } = require("../db/connection");
+const { connectToMongoDB } = require("../db/connection");
 
 var express = require("express");
 var router = express.Router();
@@ -9,7 +9,7 @@ const moment = require("moment");
 const { NODEMAILER_EMAIL, NODEMAILER_EMAIL_TO, NODEMAILER_PASSWORD } = process.env;
 
 router.post("/new", async function (req, res) {
-	const { firstName, lastName, email, message } = req.body;
+	const { firstName, lastName, email, message, interestedFormations = [] } = req.body;
 
 	["firstName", "lastName", "email", "message"].forEach((field) => {
 		if (!req.body[field] || req.body[field].trim() === "") {
@@ -33,6 +33,7 @@ router.post("/new", async function (req, res) {
 			lastName: formattedLastName,
 			email: formattedEmail,
 			message,
+			interestedFormations: interestedFormations || [],
 		});
 		await newMessage.save();
 
@@ -72,6 +73,7 @@ router.post("/new", async function (req, res) {
 				messageId: newMessage._id.toString(),
 				firstName: formattedFirstName,
 				lastName: formattedLastName,
+				interestedFormations: interestedFormations || [],
 			},
 			userAgent: req.get("User-Agent"),
 			ipAddress: req.ip || req.connection.remoteAddress,
@@ -229,6 +231,13 @@ router.post("/new", async function (req, res) {
 										<li><strong>Nom :</strong> ${formattedLastName}</li>
 										<li><strong>Prénom :</strong> ${formattedFirstName}</li>
 										<li><strong>Email :</strong> <a href="mailto:${formattedEmail}">${formattedEmail}</a></li>
+										${
+											interestedFormations && interestedFormations.length > 0
+												? `
+										<li><strong>Formations d'intérêt :</strong> ${interestedFormations.join(", ")}</li>
+										`
+												: ""
+										}
 									</ul>
 								</div>
 								<div class="message-box">
@@ -285,7 +294,7 @@ router.post("/new", async function (req, res) {
 });
 
 router.get("/catalogue", async function (req, res) {
-	const { email, firstName, lastName } = req.query;
+	const { email, firstName, lastName, interestedFormations } = req.query;
 
 	// Validation des paramètres requis
 	if (!email || !firstName || !lastName) {
@@ -307,6 +316,17 @@ router.get("/catalogue", async function (req, res) {
 		const formattedFirstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
 		const formattedLastName = lastName.toUpperCase();
 		const formattedEmail = email.toLowerCase();
+
+		// Parser les formations d'intérêt (vient comme query parameter)
+		let parsedInterestedFormations = [];
+		if (interestedFormations) {
+			try {
+				parsedInterestedFormations = Array.isArray(interestedFormations) ? interestedFormations : JSON.parse(interestedFormations);
+			} catch (e) {
+				// Si ce n'est pas du JSON, traiter comme une chaîne simple
+				parsedInterestedFormations = [interestedFormations];
+			}
+		}
 
 		// Gérer le prospect
 		let prospect = await db.prospects.findOne({ email: formattedEmail }).maxTimeMS(20000);
@@ -344,6 +364,7 @@ router.get("/catalogue", async function (req, res) {
 				catalogueVersion: "2025",
 				firstName: formattedFirstName,
 				lastName: formattedLastName,
+				interestedFormations: parsedInterestedFormations || [],
 			},
 			userAgent: req.get("User-Agent"),
 			ipAddress: req.ip || req.connection.remoteAddress,
@@ -533,6 +554,23 @@ router.get("/catalogue", async function (req, res) {
 									<p>Nous vous remercions sincèrement de votre intérêt pour nos formations IPSEIS.</p>
 								</div>
 								
+								${
+									parsedInterestedFormations && parsedInterestedFormations.length > 0
+										? `
+								<div class="info-section">
+									<h2>🎯 Vos formations d'intérêt</h2>
+									<p>Nous avons noté que vous êtes particulièrement intéressé(e) par les formations suivantes :</p>
+									<ul class="info-list" style="margin-top: 15px;">
+										${parsedInterestedFormations.map((formation) => `<li>• ${formation}</li>`).join("")}
+									</ul>
+									<p style="margin-top: 15px; font-style: italic; color: #6c757d;">
+										N'hésitez pas à nous contacter pour plus d'informations sur ces formations spécifiques.
+									</p>
+								</div>
+								`
+										: ""
+								}
+								
 								<div class="attachment-notice">
 									<h3>📎 Catalogue en pièce jointe</h3>
 									<p>Vous trouverez ci-joint notre catalogue complet 2025 avec plus de 30 formations spécialisées</p>
@@ -711,6 +749,13 @@ router.get("/catalogue", async function (req, res) {
 									<li><strong>Nom :</strong> ${formattedLastName}</li>
 									<li><strong>Prénom :</strong> ${formattedFirstName}</li>
 									<li><strong>Email :</strong> <a href="mailto:${formattedEmail}">${formattedEmail}</a></li>
+									${
+										parsedInterestedFormations && parsedInterestedFormations.length > 0
+											? `
+									<li><strong>Formations d'intérêt :</strong> ${parsedInterestedFormations.join(", ")}</li>
+									`
+											: ""
+									}
 								</ul>
 								
 								<div class="status-box">

@@ -6,6 +6,7 @@ const messageSchema = new mongoose.Schema(
 		lastName: { type: String, required: true },
 		email: { type: String, required: true },
 		message: { type: String, required: true },
+		interestedFormations: { type: [String], default: [] },
 	},
 	{ timestamps: true }
 );

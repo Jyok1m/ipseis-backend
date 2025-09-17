@@ -13,8 +13,8 @@ const interactionSchema = new mongoose.Schema(
 			required: true,
 		},
 		data: {
-			// Pour contact_message: { message: "...", messageId: "..." }
-			// Pour catalogue_download: { catalogueVersion: "2025" }
+			// Pour contact_message: { message: "...", messageId: "...", interestedFormations: [...] }
+			// Pour catalogue_download: { catalogueVersion: "2025", interestedFormations: [...] }
 			type: mongoose.Schema.Types.Mixed,
 		},
 		userAgent: { type: String },
