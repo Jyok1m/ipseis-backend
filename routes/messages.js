@@ -8,6 +8,19 @@ const nodemailer = require("nodemailer");
 const moment = require("moment");
 const { NODEMAILER_EMAIL, NODEMAILER_EMAIL_TO, NODEMAILER_PASSWORD } = process.env;
 
+// Fonction pour récupérer la vraie adresse IP du client
+const getClientIP = (req) => {
+	return (
+		req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+		req.headers["x-real-ip"] ||
+		req.headers["x-client-ip"] ||
+		req.connection?.remoteAddress ||
+		req.socket?.remoteAddress ||
+		req.ip ||
+		"IP non disponible"
+	);
+};
+
 router.post("/new", async function (req, res) {
 	const { firstName, lastName, email, message, interestedFormations = [] } = req.body;
 
@@ -76,7 +89,7 @@ router.post("/new", async function (req, res) {
 				interestedFormations: interestedFormations || [],
 			},
 			userAgent: req.get("User-Agent"),
-			ipAddress: req.ip || req.connection.remoteAddress,
+			ipAddress: getClientIP(req),
 		});
 		await interaction.save();
 
@@ -367,7 +380,7 @@ router.get("/catalogue", async function (req, res) {
 				interestedFormations: parsedInterestedFormations || [],
 			},
 			userAgent: req.get("User-Agent"),
-			ipAddress: req.ip || req.connection.remoteAddress,
+			ipAddress: getClientIP(req),
 		});
 		await interaction.save();
 
