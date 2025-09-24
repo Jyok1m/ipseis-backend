@@ -16,7 +16,14 @@ var cors = require("cors");
 
 // Configuration CORS pour autoriser les domaines spécifiques
 const corsOptions = {
-	origin: ["https://ipseis-git-test-joachim-jasmins-projects.vercel.app", "https://www.ipseis.fr", "http://localhost:3000", "http://localhost:4001"],
+	origin: [
+		"https://ipseis-git-test-joachim-jasmins-projects.vercel.app",
+		"https://ipseis-git-stg-joachim-jasmins-projects.vercel.app",
+		"https://ipseis-git-dev-joachim-jasmins-projects.vercel.app",
+		"https://www.ipseis.fr",
+		"http://localhost:" + (process.env.PORT || 3098),
+		"http://localhost:4001",
+	],
 	credentials: true,
 	optionsSuccessStatus: 200, // Pour supporter les anciens navigateurs (IE11)
 	methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
