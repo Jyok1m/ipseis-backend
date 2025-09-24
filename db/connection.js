@@ -6,7 +6,6 @@ const connectOptions = {
 	serverSelectionTimeoutMS: 30000,
 	socketTimeoutMS: 45000,
 	minPoolSize: 1, // Maintient au moins une connexion
-	bufferMaxEntries: 0, // Désactive le buffering pour des erreurs plus claires
 };
 
 // Variable pour suivre l'état de la connexion
