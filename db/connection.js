@@ -5,6 +5,7 @@ const connectOptions = {
 	connectTimeoutMS: 30000,
 	serverSelectionTimeoutMS: 30000,
 	socketTimeoutMS: 45000,
+	minPoolSize: 1, // Maintient au moins une connexion
 };
 
 // Variable pour suivre l'état de la connexion
@@ -19,6 +20,10 @@ const connectToMongoDB = async () => {
 
 	try {
 		console.log("🔄 Connecting to MongoDB...");
+
+		// Pour Vercel : désactiver les warnings de dépréciation
+		mongoose.set("strictQuery", false);
+
 		await mongoose.connect(process.env.MONGODB_URI, connectOptions);
 		isConnected = true;
 		console.log("✅ Connected to MongoDB successfully");
