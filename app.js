@@ -32,9 +32,9 @@ const corsOptions = {
 
 // Middleware de debug pour les requêtes CORS
 app.use((req, res, next) => {
-	console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-	console.log("Origin:", req.headers.origin);
-	console.log("User-Agent:", req.headers["user-agent"]);
+	//console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+	//console.log("Origin:", req.headers.origin);
+	//console.log("User-Agent:", req.headers["user-agent"]);
 	next();
 });
 
