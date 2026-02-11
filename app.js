@@ -85,6 +85,8 @@ app.get("/health", async (req, res) => {
 app.use("/", indexRouter);
 app.use("/messages", messagesRouter);
 app.use("/themes", themesRouter);
-app.use("/trainings", trainingsRouter); //
+app.use("/trainings", trainingsRouter);
+
+console.log("App started on : http://localhost:" + process.env.PORT || 3000);
 
 module.exports = app;
