@@ -55,7 +55,7 @@ router.get("/by-id/:trainingId", async function (req, res) {
 	}
 
 	try {
-		console.log(`📚 Fetching training with ID: ${trainingId}`);
+		//console.log(`📚 Fetching training with ID: ${trainingId}`);
 
 		// S'assurer que MongoDB est connecté
 		await connectToMongoDB();
@@ -67,7 +67,7 @@ router.get("/by-id/:trainingId", async function (req, res) {
 			return res.status(404).json({ error: "Formation introuvable." });
 		}
 
-		console.log(`✅ Training found: ${training.title}`);
+		//console.log(`✅ Training found: ${training.title}`);
 		res.json({ ...training, themeId: theme._id, theme: theme.title });
 	} catch (error) {
 		console.error("❌ Error fetching training:", error);
@@ -103,7 +103,7 @@ router.get("/by-theme/:themeId", async function (req, res) {
 	}
 
 	try {
-		console.log(`🎯 Fetching trainings for theme ID: ${themeId}`);
+		//console.log(`🎯 Fetching trainings for theme ID: ${themeId}`);
 
 		// S'assurer que MongoDB est connecté
 		await connectToMongoDB();
@@ -121,7 +121,7 @@ router.get("/by-theme/:themeId", async function (req, res) {
 			return { _id, title, description };
 		});
 
-		console.log(`✅ Found ${trainingList.length} trainings for theme`);
+		//console.log(`✅ Found ${trainingList.length} trainings for theme`);
 		res.json(trainingList);
 	} catch (error) {
 		console.error("❌ Error fetching trainings by theme:", error);

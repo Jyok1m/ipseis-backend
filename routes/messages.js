@@ -31,7 +31,7 @@ router.post("/new", async function (req, res) {
 	});
 
 	try {
-		console.log(`📧 Processing new contact message from ${firstName} ${lastName}`);
+		//console.log(`📧 Processing new contact message from ${firstName} ${lastName}`);
 
 		// S'assurer que MongoDB est connecté
 		await connectToMongoDB();
@@ -273,7 +273,7 @@ router.post("/new", async function (req, res) {
 		};
 
 		await transporter.sendMail(mailOptions);
-		console.log(`✅ Contact message processed successfully for ${formattedEmail}`);
+		//console.log(`✅ Contact message processed successfully for ${formattedEmail}`);
 		res.json({ message: "Votre message a été envoyé avec succès. Nous vous répondrons dans les plus brefs délais." });
 	} catch (error) {
 		console.error("❌ Error processing contact message:", error);
@@ -321,7 +321,7 @@ router.get("/catalogue", async function (req, res) {
 	}
 
 	try {
-		console.log(`📚 Processing catalogue request from ${firstName} ${lastName} (${email})`);
+		//console.log(`📚 Processing catalogue request from ${firstName} ${lastName} (${email})`);
 
 		// S'assurer que MongoDB est connecté
 		await connectToMongoDB();
@@ -799,7 +799,7 @@ router.get("/catalogue", async function (req, res) {
 
 		await transporter.sendMail(notificationMailOptions);
 
-		console.log(`✅ Catalogue sent successfully to ${formattedEmail}`);
+		//console.log(`✅ Catalogue sent successfully to ${formattedEmail}`);
 		res.json({
 			message: "Le catalogue a été envoyé avec succès à votre adresse email. Merci de votre intérêt pour nos formations !",
 		});

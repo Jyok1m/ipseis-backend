@@ -14,20 +14,20 @@ let isConnected = false;
 // Fonction pour se connecter à MongoDB
 const connectToMongoDB = async () => {
 	if (isConnected && mongoose.connection.readyState === 1) {
-		console.log("📡 Using existing MongoDB connection");
+		//console.log("📡 Using existing MongoDB connection");
 		return mongoose;
 	}
 
 	try {
-		console.log("🔄 Connecting to MongoDB...");
+		//console.log("🔄 Connecting to MongoDB...");
 
 		// Pour Vercel : désactiver les warnings de dépréciation
 		mongoose.set("strictQuery", false);
 
 		await mongoose.connect(process.env.MONGODB_URI, connectOptions);
 		isConnected = true;
-		console.log("✅ Connected to MongoDB successfully");
-		console.log("Database:", mongoose.connection.name);
+		// console.log("✅ Connected to MongoDB successfully");
+		//console.log("Database:", mongoose.connection.name);
 		return mongoose;
 	} catch (error) {
 		console.error("❌ MongoDB connection error:", error);
@@ -39,7 +39,7 @@ const connectToMongoDB = async () => {
 
 // Gestion des événements de connexion
 mongoose.connection.on("connected", () => {
-	console.log("🔗 Mongoose connected to MongoDB");
+	//console.log("🔗 Mongoose connected to MongoDB");
 	isConnected = true;
 });
 
@@ -49,7 +49,7 @@ mongoose.connection.on("error", (err) => {
 });
 
 mongoose.connection.on("disconnected", () => {
-	console.log("🔌 Mongoose disconnected from MongoDB");
+	//console.log("🔌 Mongoose disconnected from MongoDB");
 	isConnected = false;
 });
 
@@ -57,7 +57,7 @@ mongoose.connection.on("disconnected", () => {
 process.on("SIGINT", async () => {
 	try {
 		await mongoose.connection.close();
-		console.log("MongoDB connection closed through app termination");
+		//console.log("MongoDB connection closed through app termination");
 		process.exit(0);
 	} catch (error) {
 		console.error("Error during MongoDB disconnection:", error);
