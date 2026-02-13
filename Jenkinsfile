@@ -42,9 +42,11 @@ pipeline {
         }
 
         stage('Deploy') {
-            anyOf {
-                branch 'dev'
-                branch 'main'
+            when {
+                anyOf {
+                    branch 'dev'
+                    branch 'main'
+                }
             }
             steps {
                 withCredentials([
