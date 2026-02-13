@@ -7,6 +7,7 @@
 var app = require("../app");
 var debug = require("debug")("ipseis-backend:server");
 var http = require("http");
+var { connectToMongoDB } = require("../db/connection");
 
 /**
  * Get port from environment and store in Express.
@@ -22,12 +23,14 @@ app.set("port", port);
 var server = http.createServer(app);
 
 /**
- * Listen on provided port, on all network interfaces.
+ * Connect to MongoDB, then listen on provided port.
  */
 
-server.listen(port);
-server.on("error", onError);
-server.on("listening", onListening);
+connectToMongoDB().then(() => {
+	server.listen(port);
+	server.on("error", onError);
+	server.on("listening", onListening);
+});
 
 /**
  * Normalize a port into a number, string, or false.
@@ -82,5 +85,6 @@ function onError(error) {
 function onListening() {
 	var addr = server.address();
 	var bind = typeof addr === "string" ? "pipe " + addr : "port " + addr.port;
+	console.log("Server listening on " + bind);
 	debug("Listening on " + bind);
 }

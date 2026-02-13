@@ -1,63 +1,27 @@
 const mongoose = require("mongoose");
 
-// Configuration de connexion MongoDB optimisée pour Vercel
-const connectOptions = {
-	connectTimeoutMS: 30000,
-	serverSelectionTimeoutMS: 30000,
-	socketTimeoutMS: 45000,
-	minPoolSize: 1, // Maintient au moins une connexion
-};
-
-// Variable pour suivre l'état de la connexion
-let isConnected = false;
-
-// Fonction pour se connecter à MongoDB
 const connectToMongoDB = async () => {
-	if (isConnected && mongoose.connection.readyState === 1) {
-		//console.log("📡 Using existing MongoDB connection");
-		return mongoose;
-	}
-
 	try {
-		//console.log("🔄 Connecting to MongoDB...");
-
-		// Pour Vercel : désactiver les warnings de dépréciation
 		mongoose.set("strictQuery", false);
-
-		await mongoose.connect(process.env.MONGODB_URI, connectOptions);
-		isConnected = true;
-		// console.log("✅ Connected to MongoDB successfully");
-		//console.log("Database:", mongoose.connection.name);
-		return mongoose;
+		await mongoose.connect(process.env.MONGODB_URI);
+		console.log("Connected to MongoDB successfully");
 	} catch (error) {
-		console.error("❌ MongoDB connection error:", error);
-		console.error("MongoDB URI (censored):", process.env.MONGODB_URI?.replace(/\/\/.*@/, "//***:***@"));
-		isConnected = false;
-		throw error;
+		console.error("MongoDB connection error:", error);
+		process.exit(1);
 	}
 };
-
-// Gestion des événements de connexion
-mongoose.connection.on("connected", () => {
-	//console.log("🔗 Mongoose connected to MongoDB");
-	isConnected = true;
-});
 
 mongoose.connection.on("error", (err) => {
-	console.error("❌ Mongoose connection error:", err);
-	isConnected = false;
+	console.error("Mongoose connection error:", err);
 });
 
 mongoose.connection.on("disconnected", () => {
-	//console.log("🔌 Mongoose disconnected from MongoDB");
-	isConnected = false;
+	console.log("Mongoose disconnected from MongoDB");
 });
 
-// Fermeture propre lors de l'arrêt de l'application
 process.on("SIGINT", async () => {
 	try {
 		await mongoose.connection.close();
-		//console.log("MongoDB connection closed through app termination");
 		process.exit(0);
 	} catch (error) {
 		console.error("Error during MongoDB disconnection:", error);
@@ -65,9 +29,4 @@ process.on("SIGINT", async () => {
 	}
 });
 
-// Exporter la fonction de connexion et mongoose
-module.exports = {
-	mongoose,
-	connectToMongoDB,
-	isConnected: () => isConnected && mongoose.connection.readyState === 1,
-};
+module.exports = { mongoose, connectToMongoDB };

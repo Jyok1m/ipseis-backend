@@ -1,14 +1,9 @@
-const { connectToMongoDB } = require("../db/connection");
-
 var express = require("express");
 var router = express.Router();
 var db = require("../db/db");
 
 router.get("/all", async function (req, res) {
 	try {
-		// S'assurer que MongoDB est connecté
-		await connectToMongoDB();
-
 		const themes = await db.themes.find().populate("trainings").select("_id title trainings").lean().maxTimeMS(20000);
 
 		const formattedThemes = [];
@@ -57,9 +52,6 @@ router.get("/by-id/:trainingId", async function (req, res) {
 	try {
 		//console.log(`📚 Fetching training with ID: ${trainingId}`);
 
-		// S'assurer que MongoDB est connecté
-		await connectToMongoDB();
-
 		const training = await db.trainings.findById(trainingId).lean().maxTimeMS(20000);
 		const theme = await db.themes.findOne({ trainings: trainingId }).select("_id title").lean().maxTimeMS(20000);
 
@@ -104,9 +96,6 @@ router.get("/by-theme/:themeId", async function (req, res) {
 
 	try {
 		//console.log(`🎯 Fetching trainings for theme ID: ${themeId}`);
-
-		// S'assurer que MongoDB est connecté
-		await connectToMongoDB();
 
 		const theme = await db.themes.findById(themeId).populate("trainings").select("trainings").lean().maxTimeMS(20000);
 

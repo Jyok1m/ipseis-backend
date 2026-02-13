@@ -1,5 +1,3 @@
-const { connectToMongoDB } = require("../db/connection");
-
 var express = require("express");
 var router = express.Router();
 
@@ -32,9 +30,6 @@ router.post("/new", async function (req, res) {
 
 	try {
 		//console.log(`📧 Processing new contact message from ${firstName} ${lastName}`);
-
-		// S'assurer que MongoDB est connecté
-		await connectToMongoDB();
 
 		const formattedFirstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
 		const formattedLastName = lastName.toUpperCase();
@@ -322,9 +317,6 @@ router.get("/catalogue", async function (req, res) {
 
 	try {
 		//console.log(`📚 Processing catalogue request from ${firstName} ${lastName} (${email})`);
-
-		// S'assurer que MongoDB est connecté
-		await connectToMongoDB();
 
 		const formattedFirstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
 		const formattedLastName = lastName.toUpperCase();

@@ -1,5 +1,3 @@
-const { connectToMongoDB, mongoose } = require("../db/connection");
-
 var express = require("express");
 var router = express.Router();
 var db = require("../db/db");
@@ -7,9 +5,6 @@ var db = require("../db/db");
 router.get("/list", async function (req, res) {
 	try {
 		////console.log("📋 Fetching themes list...");
-
-		// S'assurer que MongoDB est connecté
-		await connectToMongoDB();
 
 		const themes = await db.themes.find().lean().select("-trainings").maxTimeMS(20000);
 		////console.log(`✅ Found ${themes.length} themes`);
