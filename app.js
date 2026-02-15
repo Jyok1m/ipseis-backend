@@ -8,6 +8,8 @@ var indexRouter = require("./routes/index");
 var messagesRouter = require("./routes/messages");
 var themesRouter = require("./routes/themes");
 var trainingsRouter = require("./routes/trainings");
+var authRouter = require("./routes/auth");
+var adminRouter = require("./routes/admin");
 
 var app = express();
 var cors = require("cors");
@@ -17,7 +19,8 @@ const corsOptions = {
 		"https://www.ipseis.fr",
 		"http://localhost:" + (process.env.PORT || 3098),
 		"http://localhost:4001",
-	],
+		process.env.FRONTEND_URL,
+	].filter(Boolean),
 	credentials: true,
 	optionsSuccessStatus: 200,
 	methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -48,5 +51,7 @@ app.use("/", indexRouter);
 app.use("/messages", messagesRouter);
 app.use("/themes", themesRouter);
 app.use("/trainings", trainingsRouter);
+app.use("/auth", authRouter);
+app.use("/admin", adminRouter);
 
 module.exports = app;
