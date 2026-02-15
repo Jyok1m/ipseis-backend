@@ -8,10 +8,12 @@ router.get("/all", async function (req, res) {
 
 		const formattedThemes = [];
 		for (const theme of themes) {
-			const formattedTrainings = theme.trainings.map((training) => {
-				const { _id, title } = training;
-				return { _id, title };
-			});
+			const formattedTrainings = theme.trainings
+				.filter((training) => training.isVisible !== false)
+				.map((training) => {
+					const { _id, title } = training;
+					return { _id, title };
+				});
 			formattedThemes.push({ _id: theme._id, title: theme.title, trainings: formattedTrainings });
 		}
 
@@ -55,7 +57,7 @@ router.get("/by-id/:trainingId", async function (req, res) {
 		const training = await db.trainings.findById(trainingId).lean().maxTimeMS(20000);
 		const theme = await db.themes.findOne({ trainings: trainingId }).select("_id title").lean().maxTimeMS(20000);
 
-		if (!training) {
+		if (!training || training.isVisible === false) {
 			return res.status(404).json({ error: "Formation introuvable." });
 		}
 
@@ -105,10 +107,12 @@ router.get("/by-theme/:themeId", async function (req, res) {
 
 		const { trainings } = theme;
 
-		const trainingList = trainings.map((training) => {
-			const { _id, title, description } = training;
-			return { _id, title, description };
-		});
+		const trainingList = trainings
+			.filter((training) => training.isVisible !== false)
+			.map((training) => {
+				const { _id, title, description } = training;
+				return { _id, title, description };
+			});
 
 		//console.log(`✅ Found ${trainingList.length} trainings for theme`);
 		res.json(trainingList);
