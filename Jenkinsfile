@@ -4,7 +4,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = 'jyok1m/ipseis-backend'
         DOCKER_TAG = "${env.BRANCH_NAME == 'main' ? 'latest' : env.BRANCH_NAME == 'stg' ? 'staging' : 'dev'}"
-        DEPLOY_PROFILE = "${env.BRANCH_NAME == 'main' ? 'prod' : 'dev'}"
+        DEPLOY_PROFILE = "${env.BRANCH_NAME == 'main' ? 'prod' : env.BRANCH_NAME == 'stg' ? 'stg' : 'dev'}"
     }
 
     stages {
@@ -44,6 +44,7 @@ pipeline {
             when {
                 anyOf {
                     branch 'dev'
+                    branch 'stg'
                     branch 'main'
                 }
             }
