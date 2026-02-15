@@ -4,6 +4,9 @@ const db = {
 	interactions: require("./models/Interaction"),
 	themes: require("./models/Theme"),
 	trainings: require("./models/Training"),
+	users: require("./models/User"),
+	activationCodes: require("./models/ActivationCode"),
+	passwordResetTokens: require("./models/PasswordResetToken"),
 };
 
 module.exports = db;
