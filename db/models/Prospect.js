@@ -10,6 +10,11 @@ const prospectSchema = new mongoose.Schema(
 			enum: ["contact", "catalogue", "mixed"],
 			default: "contact",
 		},
+		status: {
+			type: String,
+			enum: ["nouveau", "contacte", "converti", "archive"],
+			default: "nouveau",
+		},
 		lastInteractionDate: { type: Date, default: Date.now },
 		interactionCount: { type: Number, default: 0 },
 		hasCatalogueDownload: { type: Boolean, default: false },

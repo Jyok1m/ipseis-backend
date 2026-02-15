@@ -12,6 +12,7 @@ const trainingSchema = new mongoose.Schema({
 	number_of_trainees: { type: String, required: true },
 	duration: { type: String, required: true },
 	quote: { type: String, required: true },
+	isVisible: { type: Boolean, default: true },
 });
 
 module.exports = mongoose.models.trainings || mongoose.model("trainings", trainingSchema);

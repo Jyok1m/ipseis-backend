@@ -9,7 +9,7 @@ const interactionSchema = new mongoose.Schema(
 		},
 		type: {
 			type: String,
-			enum: ["contact_message", "catalogue_download"],
+			enum: ["contact_message", "catalogue_download", "admin_outreach"],
 			required: true,
 		},
 		data: {

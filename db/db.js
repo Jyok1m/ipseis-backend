@@ -7,6 +7,7 @@ const db = {
 	users: require("./models/User"),
 	activationCodes: require("./models/ActivationCode"),
 	passwordResetTokens: require("./models/PasswordResetToken"),
+	checklists: require("./models/Checklist"),
 };
 
 module.exports = db;
