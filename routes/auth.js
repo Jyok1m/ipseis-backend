@@ -130,6 +130,7 @@ router.post("/login", async function (req, res) {
 
 		res.json({
 			message: "Connexion réussie.",
+			token,
 			user: {
 				_id: user._id,
 				firstName: user.firstName,
