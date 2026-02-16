@@ -8,6 +8,9 @@ var app = require("../app");
 var debug = require("debug")("ipseis-backend:server");
 var http = require("http");
 var { connectToMongoDB } = require("../db/connection");
+var { Server } = require("socket.io");
+var jwt = require("jsonwebtoken");
+var cookie = require("cookie");
 
 /**
  * Get port from environment and store in Express.
@@ -21,6 +24,56 @@ app.set("port", port);
  */
 
 var server = http.createServer(app);
+
+/**
+ * Setup Socket.io
+ */
+
+var corsOrigins = [
+	"https://www.ipseis.fr",
+	"http://localhost:" + (process.env.PORT || 3098),
+	"http://localhost:4001",
+	process.env.FRONTEND_URL,
+].filter(Boolean);
+
+var io = new Server(server, {
+	cors: {
+		origin: corsOrigins,
+		credentials: true,
+	},
+});
+
+// Socket.io auth middleware — parse cookie, verify JWT
+io.use(function (socket, next) {
+	try {
+		var rawCookies = socket.handshake.headers.cookie;
+		if (!rawCookies) return next(new Error("Authentification requise."));
+
+		var cookies = cookie.parse(rawCookies);
+		var token = cookies.token;
+		if (!token) return next(new Error("Authentification requise."));
+
+		var decoded = jwt.verify(token, process.env.JWT_SECRET);
+		socket.userId = decoded.userId;
+		socket.userEmail = decoded.email;
+		socket.userRole = decoded.role;
+		next();
+	} catch (err) {
+		next(new Error("Session invalide ou expirée."));
+	}
+});
+
+io.on("connection", function (socket) {
+	socket.join("user:" + socket.userId);
+	debug("Socket connected: user " + socket.userId);
+
+	socket.on("disconnect", function () {
+		debug("Socket disconnected: user " + socket.userId);
+	});
+});
+
+// Expose io to routes via app
+app.set("io", io);
 
 /**
  * Connect to MongoDB, then listen on provided port.
