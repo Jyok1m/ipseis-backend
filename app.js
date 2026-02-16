@@ -10,6 +10,9 @@ var themesRouter = require("./routes/themes");
 var trainingsRouter = require("./routes/trainings");
 var authRouter = require("./routes/auth");
 var adminRouter = require("./routes/admin");
+var contractsRouter = require("./routes/contracts");
+var resourcesRouter = require("./routes/resources");
+var internalMessagesRouter = require("./routes/internalMessages");
 
 var app = express();
 var cors = require("cors");
@@ -53,5 +56,8 @@ app.use("/themes", themesRouter);
 app.use("/trainings", trainingsRouter);
 app.use("/auth", authRouter);
 app.use("/admin", adminRouter);
+app.use("/contracts", contractsRouter);
+app.use("/resources", resourcesRouter);
+app.use("/internal-messages", internalMessagesRouter);
 
 module.exports = app;

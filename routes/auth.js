@@ -61,10 +61,15 @@ router.post("/register", async function (req, res) {
 		// Hash du mot de passe
 		const hashedPassword = await bcrypt.hash(password, 10);
 
+		// Formater les champs : Prénom → Title Case, Nom → MAJUSCULES
+		const formatFirstName = (name) =>
+			name.trim().replace(/[a-zA-ZÀ-ÿ]+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+		const formatLastName = (name) => name.trim().toUpperCase();
+
 		// Créer l'utilisateur
 		const user = new db.users({
-			firstName: firstName.trim(),
-			lastName: lastName.trim(),
+			firstName: formatFirstName(firstName),
+			lastName: formatLastName(lastName),
 			email: formattedEmail,
 			password: hashedPassword,
 			phone: phone.trim(),
@@ -131,6 +136,11 @@ router.post("/login", async function (req, res) {
 				lastName: user.lastName,
 				email: user.email,
 				role: user.role,
+				phone: user.phone,
+				company: user.company,
+				position: user.position,
+				address: user.address,
+				isActive: user.isActive,
 			},
 		});
 	} catch (error) {
@@ -159,6 +169,83 @@ router.get("/me", authMiddleware, async function (req, res) {
 		res.json({ user });
 	} catch (error) {
 		console.error("Erreur lors de la récupération du profil:", error);
+		res.status(500).json({ error: "Erreur serveur." });
+	}
+});
+
+// PUT /auth/profile - Modifier son propre profil
+router.put("/profile", authMiddleware, async function (req, res) {
+	const { firstName, lastName, phone, company, position, address } = req.body;
+
+	try {
+		const user = await db.users.findById(req.user.userId);
+		if (!user) {
+			return res.status(404).json({ error: "Utilisateur non trouvé." });
+		}
+
+		if (firstName) user.firstName = firstName.trim();
+		if (lastName) user.lastName = lastName.trim();
+		if (phone) user.phone = phone.trim();
+		if (company) user.company = company.trim();
+		if (position) user.position = position.trim();
+		if (address) user.address = address.trim();
+
+		await user.save();
+
+		res.json({
+			message: "Profil mis à jour.",
+			user: {
+				_id: user._id,
+				firstName: user.firstName,
+				lastName: user.lastName,
+				email: user.email,
+				role: user.role,
+				phone: user.phone,
+				company: user.company,
+				position: user.position,
+				address: user.address,
+				isActive: user.isActive,
+			},
+		});
+	} catch (error) {
+		console.error("Erreur lors de la mise à jour du profil:", error);
+		res.status(500).json({ error: "Erreur serveur." });
+	}
+});
+
+// PUT /auth/change-password - Changer son mot de passe
+router.put("/change-password", authMiddleware, async function (req, res) {
+	const { currentPassword, newPassword, confirmNewPassword } = req.body;
+
+	if (!currentPassword || !newPassword || !confirmNewPassword) {
+		return res.status(400).json({ error: "Veuillez remplir tous les champs." });
+	}
+
+	if (newPassword !== confirmNewPassword) {
+		return res.status(400).json({ error: "Les nouveaux mots de passe ne correspondent pas." });
+	}
+
+	if (newPassword.length < 8) {
+		return res.status(400).json({ error: "Le nouveau mot de passe doit contenir au moins 8 caractères." });
+	}
+
+	try {
+		const user = await db.users.findById(req.user.userId);
+		if (!user) {
+			return res.status(404).json({ error: "Utilisateur non trouvé." });
+		}
+
+		const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+		if (!isPasswordValid) {
+			return res.status(400).json({ error: "Le mot de passe actuel est incorrect." });
+		}
+
+		user.password = await bcrypt.hash(newPassword, 10);
+		await user.save();
+
+		res.json({ message: "Mot de passe modifié avec succès." });
+	} catch (error) {
+		console.error("Erreur lors du changement de mot de passe:", error);
 		res.status(500).json({ error: "Erreur serveur." });
 	}
 });

@@ -298,11 +298,19 @@ router.get("/users", async function (req, res) {
 	const limit = parseInt(req.query.limit) || 20;
 	const skip = (page - 1) * limit;
 	const roleFilter = req.query.role;
+	const excludeRole = req.query.excludeRole;
+	const search = req.query.search;
 
 	try {
 		const query = {};
 		if (roleFilter && ["administrateur", "apprenant", "professionnel"].includes(roleFilter)) {
 			query.role = roleFilter;
+		} else if (excludeRole && ["administrateur", "apprenant", "professionnel"].includes(excludeRole)) {
+			query.role = { $ne: excludeRole };
+		}
+		if (search) {
+			const regex = new RegExp(search, "i");
+			query.$or = [{ firstName: regex }, { lastName: regex }, { email: regex }, { company: regex }, { position: regex }, { phone: regex }];
 		}
 
 		const [users, total] = await Promise.all([
@@ -325,6 +333,61 @@ router.get("/users", async function (req, res) {
 	}
 });
 
+// PUT /admin/users/:id - Modifier un utilisateur
+router.put("/users/:id", async function (req, res) {
+	const { id } = req.params;
+	const { firstName, lastName, phone, company, position, address, role, isActive } = req.body;
+
+	try {
+		const user = await db.users.findById(id);
+		if (!user) {
+			return res.status(404).json({ error: "Utilisateur introuvable." });
+		}
+
+		if (firstName) user.firstName = firstName.trim();
+		if (lastName) user.lastName = lastName.trim();
+		if (phone) user.phone = phone.trim();
+		if (company) user.company = company.trim();
+		if (position) user.position = position.trim();
+		if (address) user.address = address.trim();
+		if (role && ["administrateur", "apprenant", "professionnel"].includes(role)) {
+			user.role = role;
+		}
+		if (typeof isActive === "boolean") user.isActive = isActive;
+
+		await user.save();
+
+		const { password, ...userData } = user.toObject();
+		res.json({ message: "Utilisateur mis à jour.", user: userData });
+	} catch (error) {
+		console.error("Erreur lors de la mise à jour de l'utilisateur:", error);
+		res.status(500).json({ error: "Erreur serveur." });
+	}
+});
+
+// DELETE /admin/users/:id - Supprimer un utilisateur
+router.delete("/users/:id", async function (req, res) {
+	const { id } = req.params;
+
+	try {
+		const user = await db.users.findById(id);
+		if (!user) {
+			return res.status(404).json({ error: "Utilisateur introuvable." });
+		}
+
+		// Empêcher la suppression de son propre compte
+		if (user._id.toString() === req.user.id) {
+			return res.status(400).json({ error: "Vous ne pouvez pas supprimer votre propre compte." });
+		}
+
+		await db.users.findByIdAndDelete(id);
+		res.json({ message: "Utilisateur supprimé." });
+	} catch (error) {
+		console.error("Erreur lors de la suppression de l'utilisateur:", error);
+		res.status(500).json({ error: "Erreur serveur." });
+	}
+});
+
 // ========================
 // FORMATIONS MANAGEMENT
 // ========================
@@ -343,20 +406,27 @@ router.get("/themes", async function (req, res) {
 // GET /admin/trainings - Liste de toutes les formations avec leur thème
 router.get("/trainings", async function (req, res) {
 	try {
-		const themes = await db.themes.find().populate("trainings").sort({ title: 1 });
+		const [allTrainings, themes] = await Promise.all([
+			db.trainings.find().sort({ title: 1 }),
+			db.themes.find().sort({ title: 1 }),
+		]);
 
-		const trainings = [];
+		// Build a map: trainingId -> theme
+		const trainingThemeMap = {};
 		for (const theme of themes) {
-			for (const training of theme.trainings) {
-				trainings.push({
-					...training.toObject(),
-					themeId: theme._id,
-					themeName: theme.title,
-				});
+			for (const trainingId of theme.trainings) {
+				trainingThemeMap[trainingId.toString()] = theme;
 			}
 		}
 
-		trainings.sort((a, b) => a.title.localeCompare(b.title, "fr"));
+		const trainings = allTrainings.map((training) => {
+			const theme = trainingThemeMap[training._id.toString()];
+			return {
+				...training.toObject(),
+				themeId: theme ? theme._id : null,
+				themeName: theme ? theme.title : "Sans thème",
+			};
+		});
 
 		res.json({ trainings });
 	} catch (error) {
@@ -439,10 +509,12 @@ router.put("/trainings/:id", async function (req, res) {
 		// Si le thème a changé, mettre à jour les références
 		if (themeId) {
 			const currentTheme = await db.themes.findOne({ trainings: id });
-			if (currentTheme && currentTheme._id.toString() !== themeId) {
-				// Retirer de l'ancien thème
-				currentTheme.trainings = currentTheme.trainings.filter((t) => t.toString() !== id);
-				await currentTheme.save();
+			if (!currentTheme || currentTheme._id.toString() !== themeId) {
+				// Retirer de l'ancien thème s'il existe
+				if (currentTheme) {
+					currentTheme.trainings = currentTheme.trainings.filter((t) => t.toString() !== id);
+					await currentTheme.save();
+				}
 
 				// Ajouter au nouveau thème
 				const newTheme = await db.themes.findById(themeId);
@@ -498,7 +570,20 @@ router.get("/dashboard/stats", async function (req, res) {
 		const now = new Date();
 		const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-		const [totalProspects, prospectsThisMonth, totalUsers, totalTrainings, totalMessages, totalCatalogueDownloads, sourceBreakdown] = await Promise.all([
+		const [
+			totalProspects,
+			prospectsThisMonth,
+			totalUsers,
+			totalTrainings,
+			totalMessages,
+			totalCatalogueDownloads,
+			sourceBreakdown,
+			totalContracts,
+			contractStatusAgg,
+			recentContracts,
+			recentUsers,
+			checklistsInProgress,
+		] = await Promise.all([
 			db.prospects.countDocuments(),
 			db.prospects.countDocuments({ createdAt: { $gte: startOfMonth } }),
 			db.users.countDocuments(),
@@ -506,7 +591,20 @@ router.get("/dashboard/stats", async function (req, res) {
 			db.interactions.countDocuments({ type: "contact_message" }),
 			db.interactions.countDocuments({ type: "catalogue_download" }),
 			db.prospects.aggregate([{ $group: { _id: "$source", count: { $sum: 1 } } }]),
+			db.contracts.countDocuments(),
+			db.contracts.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
+			db.contracts.find().populate("recipientUser", "firstName lastName").sort({ createdAt: -1 }).limit(5).lean(),
+			db.users.find().select("firstName lastName role createdAt").sort({ createdAt: -1 }).limit(5).lean(),
+			db.checklists.countDocuments({ "items.isChecked": false }),
 		]);
+
+		// Build contractsByStatus from aggregation
+		const contractsByStatus = { draft: 0, sent: 0, signed: 0, cancelled: 0, rejected: 0 };
+		for (const entry of contractStatusAgg) {
+			if (entry._id in contractsByStatus) {
+				contractsByStatus[entry._id] = entry.count;
+			}
+		}
 
 		res.json({
 			totalProspects,
@@ -516,6 +614,23 @@ router.get("/dashboard/stats", async function (req, res) {
 			totalMessages,
 			totalCatalogueDownloads,
 			sourceBreakdown,
+			totalContracts,
+			contractsByStatus,
+			recentContracts: recentContracts.map((c) => ({
+				_id: c._id,
+				title: c.title,
+				recipientName: c.recipientUser ? `${c.recipientUser.firstName} ${c.recipientUser.lastName}` : "—",
+				status: c.status,
+				createdAt: c.createdAt,
+			})),
+			recentUsers: recentUsers.map((u) => ({
+				_id: u._id,
+				firstName: u.firstName,
+				lastName: u.lastName,
+				role: u.role,
+				createdAt: u.createdAt,
+			})),
+			checklistsInProgress,
 		});
 	} catch (error) {
 		console.error("Erreur lors de la récupération des stats:", error);
@@ -537,6 +652,8 @@ router.get("/prospects", async function (req, res) {
 
 	try {
 		const query = {};
+		// Par défaut, masquer les prospects convertis
+		query.status = { $ne: "converti" };
 		if (source && ["contact", "catalogue", "mixed"].includes(source)) {
 			query.source = source;
 		}
@@ -545,9 +662,10 @@ router.get("/prospects", async function (req, res) {
 			query.$or = [{ firstName: regex }, { lastName: regex }, { email: regex }];
 		}
 
-		const [prospects, total] = await Promise.all([
+		const [prospects, total, existingEmails] = await Promise.all([
 			db.prospects.find(query).sort({ lastInteractionDate: -1 }).skip(skip).limit(limit).lean(),
 			db.prospects.countDocuments(query),
+			db.users.find({}, "email").lean().then((users) => new Set(users.map((u) => u.email.toLowerCase().trim()))),
 		]);
 
 		// Fetch latest interactions for each prospect
@@ -567,10 +685,26 @@ router.get("/prospects", async function (req, res) {
 			interactionsByProspect[pid].push(interaction);
 		}
 
-		const prospectsWithInteractions = prospects.map((p) => ({
-			...p,
-			interactions: interactionsByProspect[p._id.toString()] || [],
-		}));
+		// Auto-convert prospects that have an existing user account
+		const prospectsToConvert = prospects.filter(
+			(p) => existingEmails.has(p.email.toLowerCase().trim()) && p.status !== "converti"
+		);
+		if (prospectsToConvert.length > 0) {
+			await db.prospects.updateMany(
+				{ _id: { $in: prospectsToConvert.map((p) => p._id) } },
+				{ $set: { status: "converti" } }
+			);
+		}
+
+		const prospectsWithInteractions = prospects.map((p) => {
+			const hasAccount = existingEmails.has(p.email.toLowerCase().trim());
+			return {
+				...p,
+				status: hasAccount && p.status !== "converti" ? "converti" : p.status,
+				hasAccount,
+				interactions: interactionsByProspect[p._id.toString()] || [],
+			};
+		});
 
 		res.json({
 			prospects: prospectsWithInteractions,
@@ -681,6 +815,12 @@ router.post("/prospects/:id/convert", async function (req, res) {
 		const prospect = await db.prospects.findById(id);
 		if (!prospect) {
 			return res.status(404).json({ error: "Prospect introuvable." });
+		}
+
+		// Block conversion if the prospect already has a user account
+		const existingUser = await db.users.findOne({ email: prospect.email.toLowerCase().trim() });
+		if (existingUser) {
+			return res.status(400).json({ error: "Ce prospect a déjà un compte utilisateur." });
 		}
 
 		const code = generateActivationCode();
