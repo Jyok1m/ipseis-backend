@@ -91,6 +91,116 @@ function sendNewMessageEmailNotification(recipient, senderName, subject) {
 	});
 }
 
+// ─── POST /internal-messages/conversation/:conversationId/archive ───
+
+router.post("/conversation/:conversationId/archive", async function (req, res) {
+	try {
+		await db.archivedConversations.updateOne(
+			{ userId: req.user.userId, conversationId: req.params.conversationId },
+			{ userId: req.user.userId, conversationId: req.params.conversationId },
+			{ upsert: true }
+		);
+		res.json({ message: "Conversation archivée." });
+	} catch (error) {
+		console.error("Erreur archive:", error);
+		res.status(500).json({ error: "Erreur serveur." });
+	}
+});
+
+// ─── DELETE /internal-messages/conversation/:conversationId/archive ───
+
+router.delete("/conversation/:conversationId/archive", async function (req, res) {
+	try {
+		await db.archivedConversations.deleteOne({
+			userId: req.user.userId,
+			conversationId: req.params.conversationId,
+		});
+		res.json({ message: "Conversation désarchivée." });
+	} catch (error) {
+		console.error("Erreur désarchivage:", error);
+		res.status(500).json({ error: "Erreur serveur." });
+	}
+});
+
+// ─── GET /internal-messages/conversations — all conversations (sent + received) ───
+
+router.get("/conversations", async function (req, res) {
+	const page = parseInt(req.query.page) || 1;
+	const limit = 20;
+	const skip = (page - 1) * limit;
+	const userId = new mongoose.Types.ObjectId(req.user.userId);
+
+	try {
+		// Fetch archived conversation IDs for this user
+		const archivedDocs = await db.archivedConversations.find({ userId: req.user.userId }).lean();
+		const archivedIds = archivedDocs.map((d) => d.conversationId);
+
+		const pipeline = [
+			{
+				$match: {
+					conversationId: { $ne: null, $nin: archivedIds },
+					$or: [{ senderUser: userId }, { recipientUser: userId }],
+				},
+			},
+			{ $sort: { createdAt: -1 } },
+			{
+				$group: {
+					_id: "$conversationId",
+					lastMessage: { $first: "$$ROOT" },
+					threadCount: { $sum: 1 },
+					unreadInThread: {
+						$sum: {
+							$cond: [
+								{ $and: [{ $eq: ["$recipientUser", userId] }, { $eq: ["$isRead", false] }] },
+								1,
+								0,
+							],
+						},
+					},
+				},
+			},
+			{ $sort: { "lastMessage.createdAt": -1 } },
+			{
+				$facet: {
+					data: [{ $skip: skip }, { $limit: limit }],
+					totalCount: [{ $count: "count" }],
+				},
+			},
+		];
+
+		const [result] = await db.internalMessages.aggregate(pipeline);
+		const conversations = result.data || [];
+		const total = result.totalCount[0]?.count || 0;
+
+		const messageIds = conversations.map((c) => c.lastMessage._id);
+		const populated = await db.internalMessages
+			.find({ _id: { $in: messageIds } })
+			.populate("senderUser", "firstName lastName email role")
+			.populate("recipientUser", "firstName lastName email role")
+			.lean();
+
+		const populatedMap = {};
+		for (const m of populated) {
+			populatedMap[m._id.toString()] = m;
+		}
+
+		const messages = conversations.map((c) => ({
+			...populatedMap[c.lastMessage._id.toString()],
+			conversationId: c._id,
+			threadCount: c.threadCount,
+			unreadInThread: c.unreadInThread,
+		}));
+
+		res.json({
+			messages,
+			pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+		});
+	} catch (error) {
+		console.error("Erreur conversations:", error);
+		res.status(500).json({ error: "Erreur serveur." });
+	}
+});
+
 // ─── GET /internal-messages/inbox — grouped by conversation ───
 
 router.get("/inbox", async function (req, res) {
@@ -238,6 +348,91 @@ router.get("/unread-count", async function (req, res) {
 		res.json({ count });
 	} catch (error) {
 		console.error("Erreur unread count:", error);
+		res.status(500).json({ error: "Erreur serveur." });
+	}
+});
+
+// ─── GET /internal-messages/conversations/archived ───
+
+router.get("/conversations/archived", async function (req, res) {
+	const page = parseInt(req.query.page) || 1;
+	const limit = 20;
+	const skip = (page - 1) * limit;
+	const userId = new mongoose.Types.ObjectId(req.user.userId);
+
+	try {
+		const archivedDocs = await db.archivedConversations.find({ userId: req.user.userId }).lean();
+		const archivedIds = archivedDocs.map((d) => d.conversationId);
+
+		if (archivedIds.length === 0) {
+			return res.json({
+				messages: [],
+				pagination: { page, limit, total: 0, pages: 0 },
+			});
+		}
+
+		const pipeline = [
+			{
+				$match: {
+					conversationId: { $in: archivedIds },
+					$or: [{ senderUser: userId }, { recipientUser: userId }],
+				},
+			},
+			{ $sort: { createdAt: -1 } },
+			{
+				$group: {
+					_id: "$conversationId",
+					lastMessage: { $first: "$$ROOT" },
+					threadCount: { $sum: 1 },
+					unreadInThread: {
+						$sum: {
+							$cond: [
+								{ $and: [{ $eq: ["$recipientUser", userId] }, { $eq: ["$isRead", false] }] },
+								1,
+								0,
+							],
+						},
+					},
+				},
+			},
+			{ $sort: { "lastMessage.createdAt": -1 } },
+			{
+				$facet: {
+					data: [{ $skip: skip }, { $limit: limit }],
+					totalCount: [{ $count: "count" }],
+				},
+			},
+		];
+
+		const [result] = await db.internalMessages.aggregate(pipeline);
+		const conversations = result.data || [];
+		const total = result.totalCount[0]?.count || 0;
+
+		const messageIds = conversations.map((c) => c.lastMessage._id);
+		const populated = await db.internalMessages
+			.find({ _id: { $in: messageIds } })
+			.populate("senderUser", "firstName lastName email role")
+			.populate("recipientUser", "firstName lastName email role")
+			.lean();
+
+		const populatedMap = {};
+		for (const m of populated) {
+			populatedMap[m._id.toString()] = m;
+		}
+
+		const messages = conversations.map((c) => ({
+			...populatedMap[c.lastMessage._id.toString()],
+			conversationId: c._id,
+			threadCount: c.threadCount,
+			unreadInThread: c.unreadInThread,
+		}));
+
+		res.json({
+			messages,
+			pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+		});
+	} catch (error) {
+		console.error("Erreur archived conversations:", error);
 		res.status(500).json({ error: "Erreur serveur." });
 	}
 });
