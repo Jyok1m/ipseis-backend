@@ -11,6 +11,7 @@ const db = {
 	contracts: require("./models/Contract"),
 	resources: require("./models/Resource"),
 	internalMessages: require("./models/InternalMessage"),
+	archivedConversations: require("./models/ArchivedConversation"),
 };
 
 module.exports = db;

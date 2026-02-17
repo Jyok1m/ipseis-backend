@@ -4,6 +4,8 @@ var router = express.Router();
 const db = require("../db/db");
 const nodemailer = require("nodemailer");
 const moment = require("moment");
+const authMiddleware = require("../middleware/authMiddleware");
+const roleMiddleware = require("../middleware/roleMiddleware");
 const { NODEMAILER_EMAIL, NODEMAILER_EMAIL_TO, NODEMAILER_PASSWORD } = process.env;
 
 // Fonction pour récupérer la vraie adresse IP du client
@@ -18,6 +20,170 @@ const getClientIP = (req) => {
 		"IP non disponible"
 	);
 };
+
+// ========== Admin routes ==========
+
+// GET /admin/unread-count - Count of unread contact messages
+router.get("/admin/unread-count", authMiddleware, roleMiddleware("administrateur"), async function (req, res) {
+	try {
+		const count = await db.messages.countDocuments({
+			$or: [{ isRead: false }, { isRead: { $exists: false } }],
+		});
+		res.json({ count });
+	} catch (error) {
+		console.error("Error fetching unread count:", error);
+		res.status(500).json({ error: "Erreur serveur." });
+	}
+});
+
+// GET /admin - Paginated list of contact messages
+router.get("/admin", authMiddleware, roleMiddleware("administrateur"), async function (req, res) {
+	try {
+		const page = parseInt(req.query.page) || 1;
+		const limit = 20;
+		const skip = (page - 1) * limit;
+
+		const total = await db.messages.countDocuments();
+		const messages = await db.messages.find().sort({ createdAt: -1 }).skip(skip).limit(limit);
+
+		res.json({
+			messages,
+			pagination: {
+				page,
+				pages: Math.ceil(total / limit),
+				limit,
+				total,
+			},
+		});
+	} catch (error) {
+		console.error("Error fetching contact messages:", error);
+		res.status(500).json({ error: "Erreur serveur." });
+	}
+});
+
+// GET /admin/:id - Single contact message detail
+router.get("/admin/:id", authMiddleware, roleMiddleware("administrateur"), async function (req, res) {
+	try {
+		const message = await db.messages.findById(req.params.id).populate("replies.sentBy", "firstName lastName");
+		if (!message) return res.status(404).json({ error: "Message introuvable." });
+		res.json({ message });
+	} catch (error) {
+		console.error("Error fetching contact message:", error);
+		res.status(500).json({ error: "Erreur serveur." });
+	}
+});
+
+// PATCH /admin/:id/read - Mark as read
+router.patch("/admin/:id/read", authMiddleware, roleMiddleware("administrateur"), async function (req, res) {
+	try {
+		const message = await db.messages.findByIdAndUpdate(req.params.id, { isRead: true }, { new: true });
+		if (!message) return res.status(404).json({ error: "Message introuvable." });
+		res.json({ message: "Message marqué comme lu." });
+	} catch (error) {
+		console.error("Error marking message as read:", error);
+		res.status(500).json({ error: "Erreur serveur." });
+	}
+});
+
+// POST /admin/:id/reply - Reply to contact message by email
+router.post("/admin/:id/reply", authMiddleware, roleMiddleware("administrateur"), async function (req, res) {
+	try {
+		const { content } = req.body;
+		if (!content || !content.trim()) {
+			return res.status(400).json({ error: "Le contenu de la réponse est requis." });
+		}
+
+		const contactMessage = await db.messages.findById(req.params.id);
+		if (!contactMessage) return res.status(404).json({ error: "Message introuvable." });
+
+		// Push reply and mark as read
+		contactMessage.replies.push({
+			content: content.trim(),
+			sentBy: req.user.userId,
+			sentAt: new Date(),
+		});
+		contactMessage.isRead = true;
+		await contactMessage.save();
+
+		// Send reply email
+		const transporter = nodemailer.createTransport({
+			service: "Gmail",
+			host: "smtp.gmail.com",
+			port: 465,
+			secure: true,
+			auth: { user: NODEMAILER_EMAIL, pass: NODEMAILER_PASSWORD },
+		});
+
+		const mailOptions = {
+			from: NODEMAILER_EMAIL,
+			to: contactMessage.email,
+			subject: `Re: Votre message - IPSEIS`,
+			html: `
+				<html lang="fr">
+					<head>
+						<meta charset="UTF-8" />
+						<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+						<style>
+							* { margin: 0; padding: 0; box-sizing: border-box; }
+							body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; color: #2c3e50; line-height: 1.6; padding: 20px; }
+							.container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: 1px solid #e9ecef; }
+							.header { background-color: #263C27; color: #ffffff; padding: 25px; text-align: center; }
+							.header h1 { font-size: 24px; font-weight: bold; margin-bottom: 8px; }
+							.header p { font-size: 16px; opacity: 0.9; }
+							.content { padding: 30px; background-color: #ffffff; }
+							.greeting { font-size: 18px; font-weight: bold; color: #263C27; margin-bottom: 20px; }
+							.reply-content { font-size: 16px; line-height: 1.8; color: #495057; margin-bottom: 30px; white-space: pre-wrap; }
+							.original-message { border-left: 4px solid #6F9271; padding: 15px 20px; margin: 25px 0; background-color: #f8f9fa; border-radius: 0 4px 4px 0; }
+							.original-label { font-size: 13px; color: #6F9271; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+							.original-text { font-size: 14px; color: #6c757d; line-height: 1.6; white-space: pre-wrap; }
+							.signature { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e9ecef; font-size: 16px; color: #495057; }
+							.signature strong { color: #263C27; }
+							.footer { background-color: #f8f9fa; color: #495057; padding: 20px; text-align: center; font-size: 14px; border-top: 1px solid #e9ecef; }
+							a { color: #FF4E00; text-decoration: none; }
+						</style>
+					</head>
+					<body>
+						<div class="container">
+							<div class="header">
+								<h1>IPSEIS</h1>
+								<p>Organisme de formation</p>
+							</div>
+							<div class="content">
+								<p class="greeting">Bonjour ${contactMessage.firstName},</p>
+								<div class="reply-content">${content.trim().replace(/\n/g, "<br>")}</div>
+								<div class="original-message">
+									<p class="original-label">Votre message original</p>
+									<p class="original-text">${contactMessage.message.replace(/\n/g, "<br>")}</p>
+								</div>
+								<div class="signature">
+									Cordialement,<br>
+									<strong>L'équipe IPSEIS</strong>
+								</div>
+							</div>
+							<div class="footer">
+								<strong>IPSEIS</strong> — Organisme de formation<br>
+								21 Rue de la Nation, 35400 Saint-Malo<br>
+								<a href="mailto:helenedm@ipseis.fr">helenedm@ipseis.fr</a>
+							</div>
+						</div>
+					</body>
+				</html>
+			`,
+		};
+
+		await transporter.sendMail(mailOptions);
+
+		// Populate replies for response
+		await contactMessage.populate("replies.sentBy", "firstName lastName");
+
+		res.json({ message: "Réponse envoyée avec succès.", contactMessage });
+	} catch (error) {
+		console.error("Error replying to contact message:", error);
+		res.status(500).json({ error: "Erreur lors de l'envoi de la réponse." });
+	}
+});
+
+// ========== Public routes ==========
 
 router.post("/new", async function (req, res) {
 	const { firstName, lastName, email, message, interestedFormations = [] } = req.body;
