@@ -13,6 +13,9 @@ const activationCodeSchema = new mongoose.Schema(
 		usedBy: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null },
 		usedAt: { type: Date, default: null },
 		expiresAt: { type: Date, required: true },
+		cancelled: { type: Boolean, default: false },
+		cancelledAt: { type: Date, default: null },
+		archived: { type: Boolean, default: false },
 		createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "users", required: true },
 	},
 	{ timestamps: true }

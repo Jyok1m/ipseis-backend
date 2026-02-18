@@ -270,11 +270,14 @@ router.get("/activation-codes", async function (req, res) {
 	const page = parseInt(req.query.page) || 1;
 	const limit = parseInt(req.query.limit) || 20;
 	const skip = (page - 1) * limit;
+	const showArchived = req.query.archived === "true";
 
 	try {
+		const query = showArchived ? {} : { archived: { $ne: true } };
+
 		const [codes, total] = await Promise.all([
-			db.activationCodes.find().sort({ createdAt: -1 }).skip(skip).limit(limit).populate("usedBy", "firstName lastName email").populate("createdBy", "firstName lastName email"),
-			db.activationCodes.countDocuments(),
+			db.activationCodes.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).populate("usedBy", "firstName lastName email").populate("createdBy", "firstName lastName email"),
+			db.activationCodes.countDocuments(query),
 		]);
 
 		res.json({
@@ -288,6 +291,52 @@ router.get("/activation-codes", async function (req, res) {
 		});
 	} catch (error) {
 		console.error("Erreur lors de la récupération des codes:", error);
+		res.status(500).json({ error: "Erreur serveur." });
+	}
+});
+
+// PATCH /admin/activation-codes/:id/cancel
+router.patch("/activation-codes/:id/cancel", async function (req, res) {
+	const { id } = req.params;
+
+	try {
+		const code = await db.activationCodes.findById(id);
+		if (!code) {
+			return res.status(404).json({ error: "Code introuvable." });
+		}
+
+		if (code.isUsed) {
+			return res.status(400).json({ error: "Ce code a déjà été utilisé et ne peut pas être annulé." });
+		}
+
+		if (code.cancelled) {
+			return res.status(400).json({ error: "Ce code est déjà annulé." });
+		}
+
+		code.cancelled = true;
+		code.cancelledAt = new Date();
+		await code.save();
+
+		res.json({ message: "Code annulé.", code });
+	} catch (error) {
+		console.error("Erreur lors de l'annulation du code:", error);
+		res.status(500).json({ error: "Erreur serveur." });
+	}
+});
+
+// PATCH /admin/activation-codes/:id/archive
+router.patch("/activation-codes/:id/archive", async function (req, res) {
+	const { id } = req.params;
+
+	try {
+		const code = await db.activationCodes.findByIdAndUpdate(id, { archived: true }, { new: true });
+		if (!code) {
+			return res.status(404).json({ error: "Code introuvable." });
+		}
+
+		res.json({ message: "Code archivé.", code });
+	} catch (error) {
+		console.error("Erreur lors de l'archivage du code:", error);
 		res.status(500).json({ error: "Erreur serveur." });
 	}
 });
