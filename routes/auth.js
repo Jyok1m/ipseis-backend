@@ -100,7 +100,7 @@ router.post("/register", async function (req, res) {
 
 // POST /auth/login
 router.post("/login", async function (req, res) {
-	const { email, password } = req.body;
+	const { email, password, rememberMe } = req.body;
 
 	if (!email || !password) {
 		return res.status(400).json({ error: "Veuillez remplir tous les champs." });
@@ -123,18 +123,22 @@ router.post("/login", async function (req, res) {
 			return res.status(401).json({ error: "Email ou mot de passe incorrect." });
 		}
 
-		const token = jwt.sign({ userId: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
+		const tokenExpiry = rememberMe ? "30d" : "7d";
+		const cookieMaxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+
+		const token = jwt.sign({ userId: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: tokenExpiry });
 
 		res.cookie("token", token, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-			maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+			maxAge: cookieMaxAge,
 		});
 
 		res.json({
 			message: "Connexion réussie.",
 			token,
+			rememberMe: !!rememberMe,
 			user: {
 				_id: user._id,
 				firstName: user.firstName,
