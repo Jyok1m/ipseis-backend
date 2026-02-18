@@ -44,6 +44,10 @@ router.post("/register", async function (req, res) {
 			return res.status(400).json({ error: "Ce code d'activation a déjà été utilisé." });
 		}
 
+		if (code.cancelled) {
+			return res.status(400).json({ error: "Ce code d'activation a été annulé." });
+		}
+
 		if (new Date() > code.expiresAt) {
 			return res.status(400).json({ error: "Ce code d'activation a expiré." });
 		}
