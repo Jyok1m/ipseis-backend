@@ -61,6 +61,6 @@ typings/
 .next
 
 # scripts
-scripts
+scripts/seedAdmin.js
 public/uploads/contracts/*.pdf
 public/uploads/resources/*.pdf
